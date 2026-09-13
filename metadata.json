@@ -1,0 +1,8 @@
+{
+  "name": "Remix Remix Remix CodeLayout Summarizer v.3",
+  "description": "Analyze HTML source code to generate clear summaries of your website\u0027s structural layout and core functional elements.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
