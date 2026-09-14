@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PersonaResult } from '../types';
+import { PersonaResult, SimulationConfig } from '../types';
 import {
   CheckCircle,
   Share2,
@@ -21,28 +21,30 @@ const curbsideSocialImg = '/Curbside_Compass_fb.png';
 
 interface ThankYouViewProps {
   persona: PersonaResult;
+  config: SimulationConfig;
   onViewResults: () => void;
   onRetake?: () => void;
 }
 
 export const ThankYouView: React.FC<ThankYouViewProps> = ({
   persona,
+  config,
   onViewResults,
   onRetake
 }) => {
   const [shareMode, setShareMode] = useState<'with_persona' | 'general'>('with_persona');
   const [copied, setCopied] = useState<boolean>(false);
-  const [instagramNotice, setInstagramNotice] = useState<boolean>(false);
+  const [platformNotice, setPlatformNotice] = useState<string | null>(null);
 
   const shareUrl = typeof window !== 'undefined' ? window.location.href : 'https://curbside-compass.edmonton.ca';
 
   const shareText = shareMode === 'with_persona'
-    ? `I took Edmonton's Curbside Compass public engagement tool and got "${persona.title}"! Where do you stand on neighbourhood parking? Find your persona:`
+    ? `I took Edmonton's Curbside Compass public engagement tool and got "${persona.title}"!\n\nMy Curbside Preferences:\n• Fee Model: ${config.curbsideFeeModel.charAt(0).toUpperCase() + config.curbsideFeeModel.slice(1)}\n• Enforcement: ${config.enforcementLevel}\n\nWhere do you stand on neighbourhood parking? Find your persona:`
     : `Where do you stand on Edmonton's neighbourhood parking and curbside policies? Have your say and try the Curbside Compass public engagement tool:`;
 
   const shareTextWithUrl = `${shareText} ${shareUrl}`;
 
-  const facebookShareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}&quote=${encodeURIComponent(shareText)}`;
+  const facebookShareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
   const twitterShareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}&hashtags=YEGcurbside,Edmonton,YEGtraffic`;
   const instagramUrl = 'https://www.instagram.com/';
 
@@ -59,7 +61,7 @@ export const ThankYouView: React.FC<ThankYouViewProps> = ({
     }
   };
 
-  const handleInstagramClick = async () => {
+  const handlePlatformClick = async (platform: string) => {
     try {
       if (navigator.clipboard) {
         await navigator.clipboard.writeText(shareTextWithUrl);
@@ -67,8 +69,8 @@ export const ThankYouView: React.FC<ThankYouViewProps> = ({
     } catch {
       // ignore
     }
-    setInstagramNotice(true);
-    setTimeout(() => setInstagramNotice(false), 5000);
+    setPlatformNotice(platform);
+    setTimeout(() => setPlatformNotice(null), 5000);
   };
 
   return (
@@ -89,7 +91,7 @@ export const ThankYouView: React.FC<ThankYouViewProps> = ({
               triggerFeedback('button');
               onRetake();
             }}
-            className="text-[11px] font-bold flex items-center gap-1 text-gray-600 hover:text-[#004B8D] bg-gray-100 hover:bg-gray-200 px-2.5 py-1 rounded transition-all cursor-pointer active:scale-95"
+            className="text-[0.6875rem] font-bold flex items-center gap-1 text-gray-600 hover:text-[#004B8D] bg-gray-100 hover:bg-gray-200 px-2.5 py-1 rounded transition-all cursor-pointer active:scale-95"
           >
             <RotateCcw className="w-3 h-3" />
             <span>Start Over</span>
@@ -115,7 +117,7 @@ export const ThankYouView: React.FC<ThankYouViewProps> = ({
 
           {/* Option Selection: Share Persona Result vs General Encouraging Invite */}
           <div className="bg-slate-50 border border-slate-200/90 rounded-xl p-2 sm:p-2.5 mb-2.5">
-            <span className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1.5">
+            <span className="block text-[0.625rem] font-bold uppercase tracking-wider text-gray-500 mb-1.5">
               Choose What to Share
             </span>
 
@@ -136,9 +138,9 @@ export const ThankYouView: React.FC<ThankYouViewProps> = ({
               >
                 <div className="flex items-center gap-1.5 mb-0.5">
                   <User className={`w-3.5 h-3.5 ${shareMode === 'with_persona' ? 'text-[#004B8D]' : 'text-gray-500'}`} />
-                  <span className="text-[11px] font-bold">Include My Persona</span>
+                  <span className="text-[0.6875rem] font-bold">Include My Persona</span>
                 </div>
-                <div className="text-[9.5px] text-gray-600 leading-tight line-clamp-1">
+                <div className="text-[0.59375rem] text-gray-600 leading-tight line-clamp-1">
                   Includes: <strong className="text-[#004B8D]">{persona.title}</strong>
                 </div>
               </button>
@@ -159,9 +161,9 @@ export const ThankYouView: React.FC<ThankYouViewProps> = ({
               >
                 <div className="flex items-center gap-1.5 mb-0.5">
                   <Users className={`w-3.5 h-3.5 ${shareMode === 'general' ? 'text-[#004B8D]' : 'text-gray-500'}`} />
-                  <span className="text-[11px] font-bold">General Invite Only</span>
+                  <span className="text-[0.6875rem] font-bold">General Invite Only</span>
                 </div>
-                <div className="text-[9.5px] text-gray-600 leading-tight">
+                <div className="text-[0.59375rem] text-gray-600 leading-tight">
                   Encouraging post without persona results
                 </div>
               </button>
@@ -183,7 +185,7 @@ export const ThankYouView: React.FC<ThankYouViewProps> = ({
                       href={curbsideSocialImg}
                       download="Curbside_Compass_fb.png"
                       onClick={() => triggerFeedback('button')}
-                      className="p-1 bg-white/90 rounded text-gray-800 text-[9px] font-bold flex items-center gap-0.5 no-underline active:scale-95"
+                      className="p-1 bg-white/90 rounded text-gray-800 text-[0.5625rem] font-bold flex items-center gap-0.5 no-underline active:scale-95"
                       title="Download image"
                     >
                       <Download className="w-2.5 h-2.5" />
@@ -195,26 +197,26 @@ export const ThankYouView: React.FC<ThankYouViewProps> = ({
                 <div className="flex-1 min-w-0 flex flex-col justify-between h-20 sm:h-24 py-0.5">
                   <div>
                     <div className="flex items-center justify-between gap-1 mb-1">
-                      <span className="text-[9.5px] font-bold text-[#004B8D] uppercase tracking-wide">
+                      <span className="text-[0.59375rem] font-bold text-[#004B8D] uppercase tracking-wide">
                         Social Post Preview
                       </span>
                       <a
                         href={curbsideSocialImg}
                         download="Curbside_Compass_fb.png"
                         onClick={() => triggerFeedback('button')}
-                        className="text-[9px] text-gray-500 hover:text-[#004B8D] flex items-center gap-1 font-semibold active:scale-95"
+                        className="text-[0.5625rem] text-gray-500 hover:text-[#004B8D] flex items-center gap-1 font-semibold active:scale-95"
                         title="Download image to save or attach"
                       >
                         <Download className="w-2.5 h-2.5" />
                         <span>Save image</span>
                       </a>
                     </div>
-                    <p className="text-[10px] sm:text-[10.5px] text-gray-700 leading-snug line-clamp-3 italic">
+                    <p className="text-[0.625rem] sm:text-[0.65625rem] text-gray-700 leading-snug line-clamp-3 italic">
                       "{shareText}"
                     </p>
                   </div>
 
-                  <div className="text-[9px] text-[#0081BC] font-medium truncate">
+                  <div className="text-[0.5625rem] text-[#0081BC] font-medium truncate">
                     🔗 {shareUrl}
                   </div>
                 </div>
@@ -229,9 +231,12 @@ export const ThankYouView: React.FC<ThankYouViewProps> = ({
               href={facebookShareUrl}
               target="_blank"
               rel="noopener noreferrer"
-              onClick={() => triggerFeedback('button')}
+              onClick={() => {
+                triggerFeedback('button');
+                handlePlatformClick('Facebook');
+              }}
               id="share-facebook-button"
-              className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl bg-[#1877F2] hover:bg-[#1565cf] text-white text-[11px] font-bold shadow-xs transition-transform active:scale-95 cursor-pointer no-underline"
+              className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl bg-[#1877F2] hover:bg-[#1565cf] text-white text-[0.6875rem] font-bold shadow-xs transition-transform active:scale-95 cursor-pointer no-underline"
               title="Share on Facebook"
             >
               <Facebook className="w-3.5 h-3.5 fill-current" />
@@ -243,9 +248,12 @@ export const ThankYouView: React.FC<ThankYouViewProps> = ({
               href={twitterShareUrl}
               target="_blank"
               rel="noopener noreferrer"
-              onClick={() => triggerFeedback('button')}
+              onClick={() => {
+                triggerFeedback('button');
+                handlePlatformClick('X');
+              }}
               id="share-x-button"
-              className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl bg-black hover:bg-neutral-800 text-white text-[11px] font-bold shadow-xs transition-transform active:scale-95 cursor-pointer no-underline"
+              className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl bg-black hover:bg-neutral-800 text-white text-[0.6875rem] font-bold shadow-xs transition-transform active:scale-95 cursor-pointer no-underline"
               title="Share on X"
             >
               <Twitter className="w-3.5 h-3.5 fill-current" />
@@ -259,10 +267,10 @@ export const ThankYouView: React.FC<ThankYouViewProps> = ({
               rel="noopener noreferrer"
               onClick={() => {
                 triggerFeedback('button');
-                handleInstagramClick();
+                handlePlatformClick('Instagram');
               }}
               id="share-instagram-button"
-              className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl bg-gradient-to-r from-[#833AB4] via-[#FD1D1D] to-[#FCB045] hover:opacity-95 text-white text-[11px] font-bold shadow-xs transition-transform active:scale-95 cursor-pointer no-underline"
+              className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl bg-gradient-to-r from-[#833AB4] via-[#FD1D1D] to-[#FCB045] hover:opacity-95 text-white text-[0.6875rem] font-bold shadow-xs transition-transform active:scale-95 cursor-pointer no-underline"
               title="Share on Instagram"
             >
               <Instagram className="w-3.5 h-3.5" />
@@ -270,46 +278,54 @@ export const ThankYouView: React.FC<ThankYouViewProps> = ({
             </a>
           </div>
 
-          {/* Instagram Toast Notice */}
-          {instagramNotice && (
-            <div className="mb-2 p-1.5 bg-purple-50 border border-purple-200 rounded-lg text-[10px] text-purple-900 leading-snug flex items-start gap-1.5">
-              <Check className="w-3.5 h-3.5 text-purple-700 flex-shrink-0 mt-0.5" />
+          {/* Platform Toast Notice */}
+          {platformNotice && (
+            <div className={`mb-2 p-1.5 border rounded-lg text-[0.625rem] leading-snug flex items-start gap-1.5 ${
+              platformNotice === 'Instagram' ? 'bg-purple-50 border-purple-200 text-purple-900' :
+              platformNotice === 'Facebook' ? 'bg-blue-50 border-blue-200 text-blue-900' :
+              'bg-gray-50 border-gray-200 text-gray-900'
+            }`}>
+              <Check className={`w-3.5 h-3.5 flex-shrink-0 mt-0.5 ${
+                platformNotice === 'Instagram' ? 'text-purple-700' :
+                platformNotice === 'Facebook' ? 'text-blue-700' :
+                'text-gray-700'
+              }`} />
               <span>
-                <strong>Share caption copied!</strong> Opening Instagram so you can post your Curbside Compass graphic and caption.
+                <strong>Share caption copied!</strong> Opening {platformNotice} so you can paste your post.
               </span>
             </div>
           )}
 
-          {/* Direct Copy Link Button */}
-          <div className="pt-2 border-t border-gray-100 flex items-center justify-between gap-2">
-            <span className="text-[10px] text-gray-500 font-medium truncate max-w-[200px] sm:max-w-[280px]">
-              {shareUrl}
-            </span>
+          {/* Direct Copy Full Text Button */}
+          <div className="pt-2 border-t border-gray-100">
             <button
               type="button"
-              id="copy-share-link-button"
+              id="copy-share-text-button"
               onClick={() => {
                 triggerFeedback('button');
                 handleCopyLink();
               }}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10.5px] font-bold transition-all cursor-pointer flex-shrink-0 active:scale-95 ${
+              className={`w-full flex items-center justify-center gap-2 py-2 rounded-xl text-[0.75rem] font-bold transition-all cursor-pointer active:scale-95 ${
                 copied
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'bg-white border border-gray-300 text-gray-800 hover:bg-gray-50 shadow-xs'
               }`}
             >
               {copied ? (
                 <>
-                  <Check className="w-3.5 h-3.5 text-white" />
-                  <span>Copied!</span>
+                  <Check className="w-4 h-4 text-white" />
+                  <span>Copied to Clipboard!</span>
                 </>
               ) : (
                 <>
-                  <Copy className="w-3.5 h-3.5 text-gray-600" />
-                  <span>Copy Link</span>
+                  <Copy className="w-4 h-4 text-gray-600" />
+                  <span>Copy Full Post Text to Clipboard</span>
                 </>
               )}
             </button>
+            <p className="text-center text-[0.5625rem] text-gray-500 mt-1.5">
+              Copies your Persona result and the survey link to paste anywhere.
+            </p>
           </div>
         </div>
       </div>

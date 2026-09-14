@@ -1,0 +1,55 @@
+            <a
+              href={facebookShareUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => triggerFeedback('button')}
+              id="share-facebook-button"
+              className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl bg-[#1877F2] hover:bg-[#1565cf] text-white text-[0.6875rem] font-bold shadow-xs transition-transform active:scale-95 cursor-pointer no-underline"
+              title="Share on Facebook"
+            >
+              <Facebook className="w-3.5 h-3.5 fill-current" />
+              <span>Facebook</span>
+            </a>
+
+            {/* X (formerly Twitter) */}
+            <a
+              href={twitterShareUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => triggerFeedback('button')}
+              id="share-x-button"
+              className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl bg-black hover:bg-neutral-800 text-white text-[0.6875rem] font-bold shadow-xs transition-transform active:scale-95 cursor-pointer no-underline"
+              title="Share on X"
+            >
+              <Twitter className="w-3.5 h-3.5 fill-current" />
+              <span>X (Twitter)</span>
+            </a>
+
+            {/* Instagram */}
+            <a
+              href={instagramUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => {
+                triggerFeedback('button');
+                handleInstagramClick();
+              }}
+              id="share-instagram-button"
+              className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl bg-gradient-to-r from-[#833AB4] via-[#FD1D1D] to-[#FCB045] hover:opacity-95 text-white text-[0.6875rem] font-bold shadow-xs transition-transform active:scale-95 cursor-pointer no-underline"
+              title="Share on Instagram"
+            >
+              <Instagram className="w-3.5 h-3.5" />
+              <span>Instagram</span>
+            </a>
+          </div>
+
+          {/* Instagram Toast Notice */}
+          {instagramNotice && (
+            <div className="mb-2 p-1.5 bg-purple-50 border border-purple-200 rounded-lg text-[0.625rem] text-purple-900 leading-snug flex items-start gap-1.5">
+              <Check className="w-3.5 h-3.5 text-purple-700 flex-shrink-0 mt-0.5" />
+              <span>
+                <strong>Share caption copied!</strong> Opening Instagram so you can post your Curbside Compass graphic and caption.
+              </span>
+            </div>
+          )}
+

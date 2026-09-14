@@ -1,95 +1,20 @@
-import React, { useState } from 'react';
-import { PersonaResult, SimulationConfig } from '../types';
-import { Award, MapPin, CheckCircle, Shield, ChevronRight, Compass } from 'lucide-react';
-import { ThankYouView } from './ThankYouView';
-import { PolicyCompassGraph } from './PolicyCompassGraph';
-import { triggerFeedback } from '../utils/feedback';
+import re
 
-interface ResultsViewProps {
-  persona: PersonaResult;
-  totalX: number;
-  totalY: number;
-  config: SimulationConfig;
-  onRetake?: () => void;
-}
+with open('src/components/ResultsView.tsx', 'r') as f:
+    content = f.read()
 
-export const ResultsView: React.FC<ResultsViewProps> = ({
-  persona,
-  totalX,
-  totalY,
-  config,
-  onRetake
-}) => {
-  const [rating, setRating] = useState<number | null>(null);
-  const [feedback, setFeedback] = useState<string>('');
-  const [submitted, setSubmitted] = useState<boolean>(false);
-  const [step, setStep] = useState<1 | 2>(1);
-
-  if (submitted) {
-    return (
-      <ThankYouView
-        persona={persona}
-        config={config}
-        onViewResults={() => setSubmitted(false)}
-        onRetake={onRetake}
-      />
-    );
-  }
-
-  // Step 1: Persona Identity
-  if (step === 1) {
-    return (
-      <div className="w-full max-w-4xl mx-auto h-full flex flex-col justify-between p-2 sm:p-4 overflow-y-auto">
-        <div className="flex-grow flex flex-col gap-2">
-          {/* Policy Compass Graph */}
-          <div className="bg-white border border-gray-200 rounded-xl p-3 shadow-xs h-[45vh] sm:h-[50vh] flex flex-col items-center justify-center">
-            <PolicyCompassGraph persona={persona} totalX={totalX} totalY={totalY} />
-          </div>
-
-          {/* Persona Info */}
-          <div className="bg-white border border-gray-200 rounded-xl p-2 sm:p-2.5 shadow-xs flex-1 flex flex-col justify-center">
-            <div className="flex items-center gap-2 mb-2">
-              <div
-                className="w-10 h-10 rounded-lg flex items-center justify-center text-white shadow-xs flex-shrink-0"
-                style={{ backgroundColor: persona.badgeColor }}
-              >
-                <Award className="w-6 h-6" />
-              </div>
-              <h2 className="text-sm sm:text-base md:text-lg font-black text-gray-900 leading-tight">
-                {persona.title}
-              </h2>
-            </div>
-            <p className="text-sm sm:text-base md:text-lg font-medium text-gray-800 leading-snug">
-              {persona.description}
-            </p>
-          </div>
-        </div>
-
-        {/* Next Button Footer - Lower Right */}
-        <div className="mt-2 flex justify-end">
-          <button
-            onClick={() => setStep(2)}
-            className="flex items-center justify-center gap-2 px-5 py-2.5 bg-[#004B8D] text-white rounded-lg font-bold shadow hover:bg-[#003866] transition-colors active:scale-95 text-sm min-h-[36px]"
-          >
-            Next <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // Step 2: Policy Details & Feedback
+step2_replacement = """  // Step 2: Policy Details & Feedback
   return (
-    <div className="w-full max-w-4xl mx-auto h-full flex flex-col gap-1.5 sm:gap-2 p-1.5 sm:p-2.5 md:p-3 overflow-y-auto">
+    <div className="w-full max-w-4xl mx-auto h-full flex flex-col gap-3 p-2 sm:p-3 md:p-4 overflow-y-auto">
       
       {/* Compass Result Section at the very top */}
-      <div className="bg-white border border-gray-200 rounded-xl p-2 sm:p-2.5 shadow-xs flex-shrink-0">
-        <h3 className="text-[0.625rem] sm:text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5 sm:mb-2 flex items-center gap-1.5">
+      <div className="bg-white border border-gray-200 rounded-xl p-3 sm:p-4 shadow-xs flex-shrink-0">
+        <h3 className="text-[0.625rem] sm:text-xs font-bold uppercase tracking-wider text-gray-500 mb-3 flex items-center gap-1.5">
           <Compass className="w-4 h-4 text-[#0081BC]" />
           Your Curbside Compass Result
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-1.5 sm:gap-2">
-          <div className="md:col-span-1 bg-blue-50/80 border border-blue-100 rounded-lg px-2 py-2 flex items-center text-sm gap-2 h-full">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="md:col-span-1 bg-blue-50/80 border border-blue-100 rounded-lg px-3 py-3 flex items-center text-sm gap-2 h-full">
             <div className="w-8 h-8 rounded-md flex items-center justify-center text-white shadow-xs flex-shrink-0" style={{ backgroundColor: persona.badgeColor }}>
               <Award className="w-4 h-4" />
             </div>
@@ -97,14 +22,14 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
               {persona.title}
             </span>
           </div>
-          <div className="md:col-span-2 grid grid-cols-2 gap-1.5 sm:gap-2">
-            <div className="bg-gray-50 p-2 rounded-lg border border-gray-200 flex flex-col justify-center">
+          <div className="md:col-span-2 grid grid-cols-2 gap-3">
+            <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 flex flex-col justify-center">
               <span className="text-gray-500 block text-[0.625rem] sm:text-xs mb-1">Curbside Fee Model</span>
               <span className="font-bold capitalize text-gray-800 text-xs sm:text-sm">
                 {config.curbsideFeeModel}
               </span>
             </div>
-            <div className="bg-gray-50 p-2 rounded-lg border border-gray-200 flex flex-col justify-center">
+            <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 flex flex-col justify-center">
               <span className="text-gray-500 block text-[0.625rem] sm:text-xs mb-1">Enforcement Level</span>
               <span className="font-bold capitalize text-gray-800 flex items-center gap-1.5 text-xs sm:text-sm">
                 <Shield className="w-4 h-4 text-[#009A44] flex-shrink-0" />
@@ -118,7 +43,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
       {/* Feedback Section */}
       <div className="bg-white border border-gray-200 rounded-xl p-3 shadow-xs">
         <div className="bg-[#193A5A]/5 border border-[#004B8D]/20 rounded-lg p-2.5 flex flex-col">
-          <label className="block text-xs sm:text-sm font-bold text-[#004B8D] mb-1.5 leading-snug">
+          <label className="block text-xs sm:text-sm font-bold text-[#004B8D] mb-2.5 leading-snug">
             Do you feel this represents your view on neighbourhood parking?
           </label>
           
@@ -163,9 +88,9 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
             value={feedback}
             onChange={(e) => setFeedback(e.target.value.slice(0, 500))}
             maxLength={500}
-            rows={1}
+            rows={2}
             placeholder="Share your thoughts..."
-            className="w-full text-xs sm:text-sm text-gray-800 p-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[#0081BC] focus:border-[#0081BC] resize-none bg-white leading-tight placeholder:text-gray-400 min-h-[32px]"
+            className="w-full text-xs sm:text-sm text-gray-800 p-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[#0081BC] focus:border-[#0081BC] resize-none bg-white leading-tight placeholder:text-gray-400 min-h-[40px]"
           />
           
           <div className="mt-2 flex items-center justify-between">
@@ -187,7 +112,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
                 setSubmitted(true);
               }}
               disabled={submitted}
-              className={`px-4 py-1.5 text-xs sm:text-sm font-bold rounded transition-colors shadow-2xs flex items-center justify-center gap-1 cursor-pointer active:scale-95 min-h-[36px] min-w-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#004B8D] ${
+              className={`px-4 py-1.5 text-xs sm:text-sm font-bold rounded transition-colors shadow-2xs flex items-center justify-center gap-1 cursor-pointer active:scale-95 min-h-[44px] min-w-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#004B8D] ${
                 submitted
                   ? 'bg-emerald-600 text-white cursor-default'
                   : 'bg-[#004B8D] hover:bg-[#003866] text-white cursor-pointer'
@@ -199,15 +124,15 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5 sm:gap-2 items-stretch">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-stretch">
         
         {/* Left Column: You Believe */}
         <div className="flex flex-col gap-3">
-          <div className="bg-white border border-gray-200 rounded-xl p-2 sm:p-2.5 shadow-xs flex flex-col h-full">
-            <h4 className="text-[0.625rem] sm:text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5 sm:mb-2">
+          <div className="bg-white border border-gray-200 rounded-xl p-3 sm:p-4 shadow-xs flex flex-col h-full">
+            <h4 className="text-[0.625rem] sm:text-xs font-bold uppercase tracking-wider text-gray-500 mb-3">
               You Believe
             </h4>
-            <ul className="space-y-2 text-[0.6875rem] sm:text-xs text-gray-800 w-full px-1">
+            <ul className="space-y-2 text-xs sm:text-sm text-gray-800 w-full px-1">
               {persona.keyPriorities.map((priority, idx) => (
                 <li key={idx} className="flex items-start gap-2.5 leading-tight">
                   <CheckCircle className="w-4 h-4 text-[#009A44] flex-shrink-0 mt-0.5" />
@@ -220,7 +145,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
 
         {/* Right Column: Postscript */}
         <div className="flex flex-col gap-3">
-          <div className="bg-white border border-gray-200 rounded-xl p-2 sm:p-2.5 shadow-xs flex flex-col h-full">
+          <div className="bg-white border border-gray-200 rounded-xl p-3 sm:p-4 shadow-xs flex flex-col h-full">
             <div className="flex items-start gap-2.5 mb-2">
               <div className="w-6 h-6 rounded-md bg-[#0081BC]/10 flex items-center justify-center flex-shrink-0 mt-0.5">
                 <MapPin className="w-3.5 h-3.5 text-[#0081BC]" />
@@ -231,7 +156,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
                 </h3>
               </div>
             </div>
-            <p className="text-[0.6875rem] sm:text-xs text-gray-600 leading-relaxed bg-gray-50 p-2 rounded-lg border border-gray-100 flex-grow">
+            <p className="text-xs sm:text-[0.8125rem] text-gray-600 leading-relaxed bg-gray-50 p-3 rounded-lg border border-gray-100 flex-grow">
               {persona.edmontonPolicyFit}
             </p>
           </div>
@@ -240,4 +165,12 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
       </div>
     </div>
   );
-};
+};"""
+
+pattern = re.compile(r'  // Step 2: Policy Details & Feedback\n  return \(\n    <div className="w-full max-w-4xl mx-auto h-full flex flex-col gap-3 p-2 sm:p-3 md:p-4 overflow-y-auto">.*?  \);\n};\n', re.DOTALL)
+
+new_content = pattern.sub(step2_replacement + '\n', content)
+
+with open('src/components/ResultsView.tsx', 'w') as f:
+    f.write(new_content)
+print("Updated successfully")

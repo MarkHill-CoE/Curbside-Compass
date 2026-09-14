@@ -21,7 +21,7 @@ export const PolicyCompassGraph: React.FC<PolicyCompassGraphProps> = ({
   const markerBottomPct = 4 + ((clampedY + 12) / 24) * 92;
 
   return (
-    <div className={`flex flex-col items-center justify-center w-full select-none ${className}`}>
+    <div className={`flex flex-col items-center justify-center w-full h-full select-none ${className}`}>
       {/* Top Outer Axis Label (Outside Graph, No Abbreviations) */}
       <div className="flex items-center justify-center gap-1.5 text-[9.5px] sm:text-[10.5px] font-black text-gray-700 uppercase tracking-wide pb-1 text-center">
         <span className="text-[#004B8D] text-xs">▲</span>
@@ -29,7 +29,7 @@ export const PolicyCompassGraph: React.FC<PolicyCompassGraphProps> = ({
       </div>
 
       {/* Horizontal Middle Row: Left Label + Square Graph + Right Label */}
-      <div className="flex items-center justify-center w-full gap-1 sm:gap-2">
+      <div className="flex items-center justify-center w-full gap-1 sm:gap-2 flex-grow min-h-0">
         {/* Left Outer Axis Label (Outside Graph, No Abbreviations) */}
         <div className="flex flex-col items-end justify-center text-right pr-1 sm:pr-1.5 w-16 sm:w-20 flex-shrink-0">
           <span className="text-[9px] sm:text-[10.5px] font-black text-gray-700 uppercase tracking-tight leading-tight flex items-center gap-0.5">
@@ -42,14 +42,14 @@ export const PolicyCompassGraph: React.FC<PolicyCompassGraphProps> = ({
         </div>
 
         {/* Center 2D Plane Graph (Square Container utilizing space) */}
-        <div className="relative w-[180px] h-[180px] sm:w-[200px] sm:h-[200px] md:w-[210px] md:h-[210px] bg-slate-50 border-2 border-gray-300 rounded-xl overflow-hidden shadow-inner flex-shrink-0">
+        <div className="relative w-full max-w-[280px] sm:max-w-[320px] md:max-w-[380px] max-h-[40vh] aspect-square bg-slate-50 border-2 border-gray-300 rounded-xl overflow-hidden shadow-inner flex-shrink-0">
           {/* Subtle 50% dashed reference grid lines */}
           <div className="absolute inset-x-0 top-1/4 h-[1px] border-b border-dashed border-gray-200 pointer-events-none" />
           <div className="absolute inset-x-0 top-3/4 h-[1px] border-b border-dashed border-gray-200 pointer-events-none" />
           <div className="absolute inset-y-0 left-1/4 w-[1px] border-r border-dashed border-gray-200 pointer-events-none" />
           <div className="absolute inset-y-0 left-3/4 w-[1px] border-r border-dashed border-gray-200 pointer-events-none" />
 
-          {/* Quadrant 1: Top-Right (Regulated & User-Pay) */}
+          {/* Quadrant 1: Top-Right (Regulated & User-Fee) */}
           <div
             className={`absolute top-0 right-0 w-1/2 h-1/2 border-l border-b border-gray-300 flex flex-col items-center justify-center p-1 text-center transition-all ${
               persona.quadrant === 'Q1'
@@ -57,9 +57,8 @@ export const PolicyCompassGraph: React.FC<PolicyCompassGraphProps> = ({
                 : 'text-gray-400 font-semibold hover:bg-gray-100/40'
             }`}
           >
-            <span className="text-[8px] sm:text-[9px] opacity-75 font-bold uppercase tracking-wider">Q1</span>
             <span className="text-[9px] sm:text-[10px] leading-tight">Regulated</span>
-            <span className="text-[7.5px] sm:text-[8px] opacity-70 font-normal hidden sm:block">User-Pay</span>
+            <span className="text-[7.5px] sm:text-[8px] opacity-70 font-normal hidden sm:block">User-Fee</span>
             {persona.quadrant === 'Q1' && (
               <span className="mt-0.5 text-[7px] font-black uppercase px-1 py-0.2 bg-[#0081BC] text-white rounded-full">
                 Your Result
@@ -75,7 +74,6 @@ export const PolicyCompassGraph: React.FC<PolicyCompassGraphProps> = ({
                 : 'text-gray-400 font-semibold hover:bg-gray-100/40'
             }`}
           >
-            <span className="text-[8px] sm:text-[9px] opacity-75 font-bold uppercase tracking-wider">Q2</span>
             <span className="text-[9px] sm:text-[10px] leading-tight">Protective</span>
             <span className="text-[7.5px] sm:text-[8px] opacity-70 font-normal hidden sm:block">Taxpayer</span>
             {persona.quadrant === 'Q2' && (
@@ -93,7 +91,6 @@ export const PolicyCompassGraph: React.FC<PolicyCompassGraphProps> = ({
                 : 'text-gray-400 font-semibold hover:bg-gray-100/40'
             }`}
           >
-            <span className="text-[8px] sm:text-[9px] opacity-75 font-bold uppercase tracking-wider">Q3</span>
             <span className="text-[9px] sm:text-[10px] leading-tight">Free & Easy</span>
             <span className="text-[7.5px] sm:text-[8px] opacity-70 font-normal hidden sm:block">Open Access</span>
             {persona.quadrant === 'Q3' && (
@@ -103,7 +100,7 @@ export const PolicyCompassGraph: React.FC<PolicyCompassGraphProps> = ({
             )}
           </div>
 
-          {/* Quadrant 4: Bottom-Right (Flat Rate & User-Pay) */}
+          {/* Quadrant 4: Bottom-Right (Flat Rate & User-Fee) */}
           <div
             className={`absolute bottom-0 right-0 w-1/2 h-1/2 border-l border-t border-gray-300 flex flex-col items-center justify-center p-1 text-center transition-all ${
               persona.quadrant === 'Q4'
@@ -111,7 +108,6 @@ export const PolicyCompassGraph: React.FC<PolicyCompassGraphProps> = ({
                 : 'text-gray-400 font-semibold hover:bg-gray-100/40'
             }`}
           >
-            <span className="text-[8px] sm:text-[9px] opacity-75 font-bold uppercase tracking-wider">Q4</span>
             <span className="text-[9px] sm:text-[10px] leading-tight">Flat Rate</span>
             <span className="text-[7.5px] sm:text-[8px] opacity-70 font-normal hidden sm:block">Simple Fee</span>
             {persona.quadrant === 'Q4' && (
@@ -149,7 +145,7 @@ export const PolicyCompassGraph: React.FC<PolicyCompassGraphProps> = ({
         {/* Right Outer Axis Label (Outside Graph, No Abbreviations) */}
         <div className="flex flex-col items-start justify-center text-left pl-1 sm:pl-1.5 w-16 sm:w-20 flex-shrink-0">
           <span className="text-[9px] sm:text-[10.5px] font-black text-gray-700 uppercase tracking-tight leading-tight flex items-center gap-0.5">
-            <span>User-Pay</span>
+            <span>User-Fee</span>
             <span className="text-[#004B8D] text-xs">▶</span>
           </span>
           <span className="text-[8.5px] sm:text-[9.5px] font-bold text-gray-500 uppercase tracking-tight leading-tight">

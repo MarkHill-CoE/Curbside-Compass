@@ -8,15 +8,17 @@ interface NeighborhoodSimulationProps {
   onConfigChange?: (newConfig: Partial<SimulationConfig>) => void;
   activeQuestionNumber?: number;
   policyNote?: string;
+  isCompleted?: boolean;
 }
 
-const TOTAL_LEGAL_CURBSIDE_STALLS = 10;
+const TOTAL_LEGAL_CURBSIDE_STALLS = 11;
 
 export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
   config,
   onConfigChange,
   activeQuestionNumber,
-  policyNote
+  policyNote,
+  isCompleted
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const gaugeCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -27,6 +29,10 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
   const [curbsideDemandCount, setCurbsideDemandCount] = useState<number>(0);
   const [curbsidePct, setCurbsidePct] = useState<number>(0);
   const [isRiotActive, setIsRiotActive] = useState<boolean>(false);
+  const [zoomScale, setZoomScale] = useState<number>(1.33);
+
+  const touchStartDistRef = useRef<number | null>(null);
+  const touchStartScaleRef = useRef<number>(1.33);
 
   const toggleRoadFireRef = useRef<(() => void) | null>(null);
   const handleCanvasClickRef = useRef<((clickX: number, clickY: number) => void) | null>(null);
@@ -41,8 +47,8 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
 
   // Audio context reference
   const audioCtxRef = useRef<AudioContext | null>(null);
-  const soundEnabledRef = useRef<boolean>(soundEnabled);
-  soundEnabledRef.current = soundEnabled;
+  const soundEnabledRef = useRef<boolean>(soundEnabled && !isCompleted);
+  soundEnabledRef.current = soundEnabled && !isCompleted;
 
   const configRef = useRef<SimulationConfig>(config);
   configRef.current = config;
@@ -87,6 +93,51 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
         f1 = 280 + Math.random() * 20;
         f2 = 350 + Math.random() * 20;
         duration = 0.4;
+      } else if (type === 'police') {
+        const white = '#ffffff';
+        const black = '#111111';
+        drawFlatRect(x - 1, y - 0.5, 17, 8, 'rgba(0,0,0,0.25)');
+        if (!isFlipped) {
+          drawBlock(x + 2, y - 0.5, zOffset, 3, 1, 1.5, tire, tire, tire);
+          drawBlock(x + 11, y - 0.5, zOffset, 3, 1, 1.5, tire, tire, tire);
+          drawBlock(x + 2, y + 6.5, zOffset, 3, 1, 1.5, tire, tire, tire);
+          drawBlock(x + 11, y + 6.5, zOffset, 3, 1, 1.5, tire, tire, tire);
+          drawBlock(x, y, zOffset + 0.8, 15, 7, 2.5, white, '#dddddd', '#cccccc');
+          // black doors
+          drawBlock(x + 3, y - 0.2, zOffset + 1, 7, 7.4, 2.3, black, black, black);
+          drawBlock(x + 3, y + 0.5, zOffset + 3.3, 8, 6, 2.2, white, glass, glass);
+          // lights
+          const lightColor = (Date.now() % 400 > 200) ? '#ff0000' : '#0000ff';
+          drawBlock(x + 6, y + 2.5, zOffset + 5.5, 2, 2, 0.8, lightColor, lightColor, lightColor);
+        } else {
+          drawBlock(x + 3, y + 0.5, zOffset, 8, 6, 2.2, white, '#111', '#111');
+          drawBlock(x, y, zOffset + 2.2, 15, 7, 2.5, white, '#dddddd', '#cccccc');
+          drawBlock(x + 3, y - 0.2, zOffset + 2.4, 7, 7.4, 2.3, black, black, black);
+          drawBlock(x + 2, y - 1, zOffset + 4.7, 3, 1, 2, tire, tire, tire);
+          drawBlock(x + 11, y - 1, zOffset + 4.7, 3, 1, 2, tire, tire, tire);
+        }
+      } else if (type === 'firetruck') {
+        const red = '#cc0000';
+        const redDark = '#990000';
+        const chrome = '#eeeeee';
+        drawFlatRect(x - 1, y - 0.5, 26, 10, 'rgba(0,0,0,0.3)');
+        if (!isFlipped) {
+          drawBlock(x + 2, y - 0.5, zOffset, 4, 1.5, 2.5, tire, tire, tire);
+          drawBlock(x + 16, y - 0.5, zOffset, 4, 1.5, 2.5, tire, tire, tire);
+          drawBlock(x + 2, y + 8, zOffset, 4, 1.5, 2.5, tire, tire, tire);
+          drawBlock(x + 16, y + 8, zOffset, 4, 1.5, 2.5, tire, tire, tire);
+          drawBlock(x, y, zOffset + 1.2, 24, 9, 7.5, red, redDark, redDark);
+          drawBlock(x + 18, y + 0.5, zOffset + 4.2, 6, 8, 4.8, red, glass, glass); // cab
+          drawBlock(x + 24, y + 1.5, zOffset + 2, 0.5, 6, 2, chrome, chrome, chrome); // grill
+          
+          // flashing lights
+          const lightColor = (Date.now() % 300 > 150) ? '#ff0000' : '#ffffff';
+          drawBlock(x + 19, y + 1, zOffset + 9, 3, 7, 1.0, lightColor, lightColor, lightColor);
+        } else {
+          drawBlock(x, y, zOffset + 2, 24, 9, 7.5, red, redDark, redDark);
+          drawBlock(x + 2, y - 1, zOffset + 9.7, 4, 1.5, 2.5, tire, tire, tire);
+          drawBlock(x + 16, y - 1, zOffset + 9.7, 4, 1.5, 2.5, tire, tire, tire);
+        }
       } else if (type === 'suv') {
         f1 = 370 + Math.random() * 25;
         f2 = 450 + Math.random() * 25;
@@ -147,6 +198,41 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
   const reshuffleTriggerRef = useRef<number>(0);
   const handleReshuffle = () => {
     reshuffleTriggerRef.current += 1;
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      touchStartDistRef.current = dist;
+      touchStartScaleRef.current = zoomScale;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && touchStartDistRef.current !== null) {
+      // Prevent default to stop page scroll
+      if (e.cancelable) e.preventDefault();
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const newScale = touchStartScaleRef.current * (dist / touchStartDistRef.current);
+      setZoomScale(Math.min(Math.max(0.5, newScale), 4));
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (e.touches.length < 2) {
+      touchStartDistRef.current = null;
+    }
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    // Stop page scrolling or browser zoom
+    setZoomScale(s => Math.min(Math.max(0.5, s - e.deltaY * 0.005), 4));
   };
 
   useEffect(() => {
@@ -362,21 +448,30 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
       for (let h = 0; h < 6; h++) {
         const i = 10 + h * lotWidth;
 
-        // Concrete single-car-wide driveway on private lot down to sidewalk (width 9.5, y = 35 to 70)
-        drawFlatRect(i + 35, 35, 9.5, 35, '#9ca0a4', bgGroundCtx);
-        drawFlatRect(i + 35, 53, 9.5, 0.4, '#7e8387', bgGroundCtx);
+        if (h === 5) {
+          // Skinny Lots (No front driveway)
+          // Front walkway for Skinny 1 (x: i + 5)
+          drawFlatRect(i + 9, 35, 3, 35, '#d0d4d8', bgGroundCtx);
+          // Front walkway for Skinny 2 (x: i + 25)
+          drawFlatRect(i + 29, 35, 3, 35, '#d0d4d8', bgGroundCtx);
+        } else {
+          // Standard Single-Family
+          // Concrete single-car-wide driveway on private lot down to sidewalk (width 9.5, y = 35 to 70)
+          drawFlatRect(i + 35, 35, 9.5, 35, '#9ca0a4', bgGroundCtx);
+          drawFlatRect(i + 35, 53, 9.5, 0.4, '#7e8387', bgGroundCtx);
 
-        // Driveway apron across boulevard (y = 78 to 93)
-        drawFlatRect(i + 35, 78, 9.5, 15, '#9ca0a4', bgGroundCtx);
-        drawFlatRect(i + 35, 86, 9.5, 0.4, '#7e8387', bgGroundCtx);
+          // Driveway apron across boulevard (y = 78 to 93)
+          drawFlatRect(i + 35, 78, 9.5, 15, '#9ca0a4', bgGroundCtx);
+          drawFlatRect(i + 35, 86, 9.5, 0.4, '#7e8387', bgGroundCtx);
 
-        // Front walkway from front door (y = 35) to sidewalk (y = 70)
-        drawFlatRect(i + 13, 35, 4, 35, '#d0d4d8', bgGroundCtx);
-        // Walkway connection branch to single-car driveway
-        drawFlatRect(i + 17, 51, 18, 2.5, '#d0d4d8', bgGroundCtx);
+          // Front walkway from front door (y = 35) to sidewalk (y = 70)
+          drawFlatRect(i + 13, 35, 4, 35, '#d0d4d8', bgGroundCtx);
+          // Walkway connection branch to single-car driveway
+          drawFlatRect(i + 17, 51, 18, 2.5, '#d0d4d8', bgGroundCtx);
 
-        // Driveway dropped curb apron cut
-        drawFlatRect(i + 34.8, 92.4, 9.9, 1.2, '#8e9398', bgGroundCtx);
+          // Driveway dropped curb apron cut
+          drawFlatRect(i + 34.8, 92.4, 9.9, 1.2, '#8e9398', bgGroundCtx);
+        }
       }
 
       // Continuous Public Sidewalk with scored joint lines (y = 70 to 78)
@@ -390,37 +485,40 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
 
       for (let h = 0; h < 6; h++) {
         const i = 10 + h * lotWidth;
-        // 1.5m No-Parking Driveway Clearance Zones (1.5m = 5.0 simulation units)
-        // Left 1.5m clearance zone: [i + 30, i + 35]
-        // Right 1.5m clearance zone: [i + 44.5, i + 49.5]
-        if (h !== 0) {
-          // Left 1.5m yellow curb
-          drawFlatRect(i + 30, 92.4, 5.0, 1.2, '#FBBF24', bgGroundCtx);
-          // Left boundary limit line (white)
-          drawFlatRect(i + 29.7, 91.5, 0.6, 2.8, '#FFFFFF', bgGroundCtx);
-          // Left yellow road edge clearance stripe
-          drawFlatRect(i + 30.5, 93.7, 4.0, 0.6, 'rgba(251, 191, 36, 0.75)', bgGroundCtx);
-        }
+        
+        if (h !== 5) { // Skip driveway logic for house 5 which doesn't have a front driveway
+          // 1.5m No-Parking Driveway Clearance Zones (1.5m = 5.0 simulation units)
+          // Left 1.5m clearance zone: [i + 30, i + 35]
+          // Right 1.5m clearance zone: [i + 44.5, i + 49.5]
+          if (h !== 0) {
+            // Left 1.5m yellow curb
+            drawFlatRect(i + 30, 92.4, 5.0, 1.2, '#FBBF24', bgGroundCtx);
+            // Left boundary limit line (white)
+            drawFlatRect(i + 29.7, 91.5, 0.6, 2.8, '#FFFFFF', bgGroundCtx);
+            // Left yellow road edge clearance stripe
+            drawFlatRect(i + 30.5, 93.7, 4.0, 0.6, 'rgba(251, 191, 36, 0.75)', bgGroundCtx);
+          }
 
-        // Right 1.5m yellow curb (applies to all driveways h = 0 to 5)
-        drawFlatRect(i + 44.5, 92.4, 5.0, 1.2, '#FBBF24', bgGroundCtx);
-        // Right boundary limit line (white)
-        drawFlatRect(i + 49.5, 91.5, 0.6, 2.8, '#FFFFFF', bgGroundCtx);
-        // Right yellow road edge clearance stripe
-        drawFlatRect(i + 45.0, 93.7, 4.0, 0.6, 'rgba(251, 191, 36, 0.75)', bgGroundCtx);
+          // Right 1.5m yellow curb (applies to all driveways h = 0 to 5)
+          drawFlatRect(i + 44.5, 92.4, 5.0, 1.2, '#FBBF24', bgGroundCtx);
+          // Right boundary limit line (white)
+          drawFlatRect(i + 49.5, 91.5, 0.6, 2.8, '#FFFFFF', bgGroundCtx);
+          // Right yellow road edge clearance stripe
+          drawFlatRect(i + 45.0, 93.7, 4.0, 0.6, 'rgba(251, 191, 36, 0.75)', bgGroundCtx);
 
-        // Stenciled "1.5m" curb labels
-        const curbLabelPosR = project(i + 47.0, 95.0, 0);
-        bgGroundCtx.save();
-        bgGroundCtx.fillStyle = '#FBBF24';
-        bgGroundCtx.font = 'bold 6px "Open Sans", sans-serif';
-        bgGroundCtx.textAlign = 'center';
-        bgGroundCtx.fillText('1.5m', curbLabelPosR.x, curbLabelPosR.y);
-        if (h !== 0) {
-          const curbLabelPosL = project(i + 32.5, 95.0, 0);
-          bgGroundCtx.fillText('1.5m', curbLabelPosL.x, curbLabelPosL.y);
+          // Stenciled "1.5m" curb labels
+          const curbLabelPosR = project(i + 47.0, 95.0, 0);
+          bgGroundCtx.save();
+          bgGroundCtx.fillStyle = '#FBBF24';
+          bgGroundCtx.font = 'bold 6px "Open Sans", sans-serif';
+          bgGroundCtx.textAlign = 'center';
+          bgGroundCtx.fillText('1.5m', curbLabelPosR.x, curbLabelPosR.y);
+          if (h !== 0) {
+            const curbLabelPosL = project(i + 32.5, 95.0, 0);
+            bgGroundCtx.fillText('1.5m', curbLabelPosL.x, curbLabelPosL.y);
+          }
+          bgGroundCtx.restore();
         }
-        bgGroundCtx.restore();
       }
 
       // Fire Hydrant 5m No-Parking Zone Road Markings in front of Blue House (Hydrant at x = 27, radius = 16.5m)
@@ -513,28 +611,49 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
         const leftC = adjustColor(brand.hex, -15);
         const rightC = adjustColor(brand.hex, -30);
         const roofC = adjustColor(brand.hex, -45);
+        
+        // Example: If it's the last house, draw something different like a skinny split lot
+        if (h === 5) {
+            // Draw two skinny homes
+            const skinny1X = i + 5;
+            const skinny2X = i + 25;
+            
+            // Skinny 1
+            drawBlock(skinny1X, 0, 0, 15, 35, 24, topC, leftC, rightC, bgHousesCtx);
+            drawPitchedRoof(skinny1X - 1, -2, 24, 17, 39, 10, roofC, rightC, bgHousesCtx);
+            drawBlock(skinny1X + 5, 35, 0, 3, 0.5, 7, '#ffffff', '#e0e0e0', '#cccccc', bgHousesCtx); // Door
+            drawBlock(skinny1X + 2, 35, 10, 4, 0.5, 8, '#eef5f9', '#a2c8e0', '#6ba1c4', bgHousesCtx); // Window
+            
+            // Skinny 2
+            const topC2 = edmontonPalette[3].hex; // Red
+            const leftC2 = adjustColor(topC2, -15);
+            const rightC2 = adjustColor(topC2, -30);
+            drawBlock(skinny2X, 0, 0, 15, 35, 24, topC2, leftC2, rightC2, bgHousesCtx);
+            drawPitchedRoof(skinny2X - 1, -2, 24, 17, 39, 10, roofC, rightC, bgHousesCtx);
+            drawBlock(skinny2X + 5, 35, 0, 3, 0.5, 7, '#ffffff', '#e0e0e0', '#cccccc', bgHousesCtx); // Door
+            drawBlock(skinny2X + 2, 35, 10, 4, 0.5, 8, '#eef5f9', '#a2c8e0', '#6ba1c4', bgHousesCtx); // Window
+            
+            // Note: Currently, the background rendering (driveway) will still draw the standard driveway for lot 5.
+            // We would need to update `renderGroundBackground()` to handle these dynamic lot layouts too.
+        } else {
+            // Standard Single-Family Home
+            drawBlock(i + 5, 0, 0, 28, 35, 18, topC, leftC, rightC, bgHousesCtx);
+            drawPitchedRoof(i + 3, -2, 18, 32, 39, 15, roofC, rightC, bgHousesCtx);
+            drawBlock(i + 8, 15, 18, 3, 3, 18, '#193A5A', '#11283f', '#0a1726', bgHousesCtx);
 
-        // Main House Structure
-        drawBlock(i + 5, 0, 0, 28, 35, 18, topC, leftC, rightC, bgHousesCtx);
-        drawPitchedRoof(i + 3, -2, 18, 32, 39, 15, roofC, rightC, bgHousesCtx);
-        drawBlock(i + 8, 15, 18, 3, 3, 18, '#193A5A', '#11283f', '#0a1726', bgHousesCtx);
+            drawBlock(i + 33, 10, 0, 11.5, 25, 11, adjustColor(topC, -5), leftC, rightC, bgHousesCtx);
+            drawBlock(i + 32.5, 8, 11, 12.5, 27, 2, roofC, rightC, rightC, bgHousesCtx);
 
-        // Attached Single-Car Garage on the right side of the lot (aligned with single-car driveway)
-        drawBlock(i + 33, 10, 0, 11.5, 25, 11, adjustColor(topC, -5), leftC, rightC, bgHousesCtx);
-        drawBlock(i + 32.5, 8, 11, 12.5, 27, 2, roofC, rightC, rightC, bgHousesCtx);
+            drawBlock(i + 35, 35, 0, 8.5, 0.5, 9, '#e2e8f0', '#cbd5e1', '#94a3b8', bgHousesCtx);
+            drawBlock(i + 35.5, 35.1, 3.0, 7.5, 0.2, 0.3, '#94a3b8', '#64748b', '#475569', bgHousesCtx);
+            drawBlock(i + 35.5, 35.1, 6.0, 7.5, 0.2, 0.3, '#94a3b8', '#64748b', '#475569', bgHousesCtx);
 
-        // Single-Car Garage Door (front face at y = 35)
-        drawBlock(i + 35, 35, 0, 8.5, 0.5, 9, '#e2e8f0', '#cbd5e1', '#94a3b8', bgHousesCtx);
-        drawBlock(i + 35.5, 35.1, 3.0, 7.5, 0.2, 0.3, '#94a3b8', '#64748b', '#475569', bgHousesCtx);
-        drawBlock(i + 35.5, 35.1, 6.0, 7.5, 0.2, 0.3, '#94a3b8', '#64748b', '#475569', bgHousesCtx);
+            drawBlock(i + 13, 35, 0, 4, 0.5, 7, '#ffffff', '#e0e0e0', '#cccccc', bgHousesCtx);
+            drawBlock(i + 12.5, 35.1, 0, 5, 0.5, 0.8, '#cbd5e1', '#94a3b8', '#64748b', bgHousesCtx);
 
-        // Front Entry Door (main house facade, y = 35)
-        drawBlock(i + 13, 35, 0, 4, 0.5, 7, '#ffffff', '#e0e0e0', '#cccccc', bgHousesCtx);
-        drawBlock(i + 12.5, 35.1, 0, 5, 0.5, 0.8, '#cbd5e1', '#94a3b8', '#64748b', bgHousesCtx);
-
-        // Front Windows (left and right living areas on main house, y = 35)
-        drawBlock(i + 6.5, 35, 5, 5, 0.5, 6, '#eef5f9', '#a2c8e0', '#6ba1c4', bgHousesCtx);
-        drawBlock(i + 20, 35, 5, 5, 0.5, 6, '#eef5f9', '#a2c8e0', '#6ba1c4', bgHousesCtx);
+            drawBlock(i + 6.5, 35, 5, 5, 0.5, 6, '#eef5f9', '#a2c8e0', '#6ba1c4', bgHousesCtx);
+            drawBlock(i + 20, 35, 5, 5, 0.5, 6, '#eef5f9', '#a2c8e0', '#6ba1c4', bgHousesCtx);
+        }
       }
 
       // Boulevard Trees (City of Edmonton Urban Forest - American Elms & Green Ashes)
@@ -603,43 +722,32 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
         const color = edmontonPalette[h].hex;
         const baseX = 10 + h * 55;
 
-        // Driveways are strictly ONE CAR WIDE (width 9.5, centered at x = baseX + 35.5).
-        // Cars cannot park on top of each other (non-overlapping y coordinates) and must never block sidewalk (y = 70 to 78).
-        // On the private setback between garage (y = 35) and sidewalk (y = 70), depth is 35 units.
-        // With car depth d = 15, a single-car driveway holds at most 2 cars in tandem:
-        // - 1 Car: y = 45 (spans 45 to 60, centered with 10-unit buffers front & back)
-        // - 2 Cars (Tandem): Car 1 at y = 36 (spans 36 to 51); Car 2 at y = 53 (spans 53 to 68)
-        //   * 2-unit air gap between cars ensures cars NEVER park on top of each other
-        //   * 2-unit air gap before sidewalk ensures cars NEVER block the sidewalk
-        const effectiveCap = Math.min(2, Math.max(1, drivewayCap));
-        const drivewaySpotCoords: { x: number; y: number }[] =
-          effectiveCap === 1
-            ? [{ x: baseX + 35.5, y: 45 }]
-            : [
-                { x: baseX + 35.5, y: 36 },
-                { x: baseX + 35.5, y: 53 }
-              ];
+        // Skip driveway spots for lot 5 as it has skinny infills with no front driveways
+        if (h !== 5) {
+          const effectiveCap = Math.min(2, Math.max(1, drivewayCap));
+          const drivewaySpotCoords: { x: number; y: number }[] =
+            effectiveCap === 1
+              ? [{ x: baseX + 35.5, y: 45 }]
+              : [
+                  { x: baseX + 35.5, y: 36 },
+                  { x: baseX + 35.5, y: 53 }
+                ];
 
-        for (let d = 0; d < effectiveCap; d++) {
-          const spot = drivewaySpotCoords[d];
-          assignments.push({
-            type: typesY[(h + d) % 3],
-            x: spot.x,
-            y: spot.y,
-            w: 7.5,
-            d: 15,
-            color
-          });
+          for (let d = 0; d < effectiveCap; d++) {
+            const spot = drivewaySpotCoords[d];
+            assignments.push({
+              type: typesY[(h + d) % 3],
+              x: spot.x,
+              y: spot.y,
+              w: 7.5,
+              d: 15,
+              color
+            });
+          }
         }
 
-        // Curbside spots along the street (y = 94), positioned along the curb clear of driveways and hydrants
-        // Fire Hydrant 5m Clearance Rule: In front of the blue house (h = 0), no parking within 5m (x = 10.5 to 43.5).
-        // 1.5m Driveway Clearance Rule: Under Edmonton bylaws, no vehicles can park within 1.5m (5.0 units) of either side of a driveway.
-        // For house h > 0:
-        // - Left driveway ends at baseX - 10.5 -> 1.5m clearance boundary is at baseX - 5.5.
-        // - Right driveway starts at baseX + 35.0 -> 1.5m clearance boundary is at baseX + 30.0.
+        // Curbside spots
         if (h !== 0) {
-          // Spot 1: between previous driveway and this lot (clearance = 6.0 units / 1.8m >= 1.5m)
           assignments.push({
             type: typesX[h % 3],
             x: baseX - 4.5,
@@ -648,15 +756,36 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
             d: 7.5,
             color
           });
-          // Spot 2: approaching this lot's driveway (clearance = 6.0 units / 1.8m >= 1.5m)
-          assignments.push({
-            type: typesX[(h + 1) % 3],
-            x: baseX + 13.0,
-            y: 94,
-            w: 16,
-            d: 7.5,
-            color
-          });
+          
+          if (h === 5) {
+            // For lot 5, without a driveway, we can fit an extra curbside car!
+            assignments.push({
+              type: typesX[(h + 1) % 3],
+              x: baseX + 13.0,
+              y: 94,
+              w: 16,
+              d: 7.5,
+              color
+            });
+            assignments.push({
+              type: typesX[(h + 2) % 3],
+              x: baseX + 32.5,
+              y: 94,
+              w: 16,
+              d: 7.5,
+              color: edmontonPalette[3].hex // match the red house
+            });
+          } else {
+             // Normal driveway
+            assignments.push({
+              type: typesX[(h + 1) % 3],
+              x: baseX + 13.0,
+              y: 94,
+              w: 16,
+              d: 7.5,
+              color
+            });
+          }
         }
       }
       return assignments;
@@ -814,6 +943,51 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
           drawBlock(x - 1, y + 2, zOffset + 4.7, 1, 3, 2, tire, tire, tire);
           drawBlock(x - 1, y + 11, zOffset + 4.7, 1, 3, 2, tire, tire, tire);
         }
+      } else if (type === 'police') {
+        const white = '#ffffff';
+        const black = '#111111';
+        drawFlatRect(x - 1, y - 0.5, 17, 8, 'rgba(0,0,0,0.25)');
+        if (!isFlipped) {
+          drawBlock(x + 2, y - 0.5, zOffset, 3, 1, 1.5, tire, tire, tire);
+          drawBlock(x + 11, y - 0.5, zOffset, 3, 1, 1.5, tire, tire, tire);
+          drawBlock(x + 2, y + 6.5, zOffset, 3, 1, 1.5, tire, tire, tire);
+          drawBlock(x + 11, y + 6.5, zOffset, 3, 1, 1.5, tire, tire, tire);
+          drawBlock(x, y, zOffset + 0.8, 15, 7, 2.5, white, '#dddddd', '#cccccc');
+          // black doors
+          drawBlock(x + 3, y - 0.2, zOffset + 1, 7, 7.4, 2.3, black, black, black);
+          drawBlock(x + 3, y + 0.5, zOffset + 3.3, 8, 6, 2.2, white, glass, glass);
+          // lights
+          const lightColor = (Date.now() % 400 > 200) ? '#ff0000' : '#0000ff';
+          drawBlock(x + 6, y + 2.5, zOffset + 5.5, 2, 2, 0.8, lightColor, lightColor, lightColor);
+        } else {
+          drawBlock(x + 3, y + 0.5, zOffset, 8, 6, 2.2, white, '#111', '#111');
+          drawBlock(x, y, zOffset + 2.2, 15, 7, 2.5, white, '#dddddd', '#cccccc');
+          drawBlock(x + 3, y - 0.2, zOffset + 2.4, 7, 7.4, 2.3, black, black, black);
+          drawBlock(x + 2, y - 1, zOffset + 4.7, 3, 1, 2, tire, tire, tire);
+          drawBlock(x + 11, y - 1, zOffset + 4.7, 3, 1, 2, tire, tire, tire);
+        }
+      } else if (type === 'firetruck') {
+        const red = '#cc0000';
+        const redDark = '#990000';
+        const chrome = '#eeeeee';
+        drawFlatRect(x - 1, y - 0.5, 26, 10, 'rgba(0,0,0,0.3)');
+        if (!isFlipped) {
+          drawBlock(x + 2, y - 0.5, zOffset, 4, 1.5, 2.5, tire, tire, tire);
+          drawBlock(x + 16, y - 0.5, zOffset, 4, 1.5, 2.5, tire, tire, tire);
+          drawBlock(x + 2, y + 8, zOffset, 4, 1.5, 2.5, tire, tire, tire);
+          drawBlock(x + 16, y + 8, zOffset, 4, 1.5, 2.5, tire, tire, tire);
+          drawBlock(x, y, zOffset + 1.2, 24, 9, 7.5, red, redDark, redDark);
+          drawBlock(x + 18, y + 0.5, zOffset + 4.2, 6, 8, 4.8, red, glass, glass); // cab
+          drawBlock(x + 24, y + 1.5, zOffset + 2, 0.5, 6, 2, chrome, chrome, chrome); // grill
+          
+          // flashing lights
+          const lightColor = (Date.now() % 300 > 150) ? '#ff0000' : '#ffffff';
+          drawBlock(x + 19, y + 1, zOffset + 9, 3, 7, 1.0, lightColor, lightColor, lightColor);
+        } else {
+          drawBlock(x, y, zOffset + 2, 24, 9, 7.5, red, redDark, redDark);
+          drawBlock(x + 2, y - 1, zOffset + 9.7, 4, 1.5, 2.5, tire, tire, tire);
+          drawBlock(x + 16, y - 1, zOffset + 9.7, 4, 1.5, 2.5, tire, tire, tire);
+        }
       } else if (type === 'suv') {
         drawFlatRect(x - 1, y - 0.5, 18, 8.5, 'rgba(0,0,0,0.25)');
         if (!isFlipped) {
@@ -846,17 +1020,56 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
         }
       } else if (type === 'pickup') {
         drawFlatRect(x - 1, y - 0.5, 20, 8.5, 'rgba(0,0,0,0.25)');
-        drawBlock(x + 2, y - 0.5, zOffset, 3.5, 1, 2, tire, tire, tire);
-        drawBlock(x + 13, y - 0.5, zOffset, 3.5, 1, 2, tire, tire, tire);
-        drawBlock(x + 2, y + 7, zOffset, 3.5, 1, 2, tire, tire, tire);
-        drawBlock(x + 13, y + 7, zOffset, 3.5, 1, 2, tire, tire, tire);
-        drawBlock(x + 7, y, zOffset + 1, 11, 7.5, 3.2, drawTopC, drawLeftC, drawRightC);
-        drawBlock(x + 8, y + 0.5, zOffset + 4.2, 7, 6.5, 3, drawTopC, glass, glass);
-        drawBlock(x, y, zOffset + 1, 7, 7.5, 3.2, drawTopC, drawLeftC, drawRightC);
+        if (!isFlipped) {
+          drawBlock(x + 2, y - 0.5, zOffset, 3.5, 1, 2, tire, tire, tire);
+          drawBlock(x + 13, y - 0.5, zOffset, 3.5, 1, 2, tire, tire, tire);
+          drawBlock(x + 2, y + 7, zOffset, 3.5, 1, 2, tire, tire, tire);
+          drawBlock(x + 13, y + 7, zOffset, 3.5, 1, 2, tire, tire, tire);
+          // Bed (Drawn first)
+          drawBlock(x, y, zOffset + 1, 7, 7.5, 3.2, drawTopC, drawLeftC, drawRightC);
+          // Cab (Drawn next so it overlaps the bed slightly if needed)
+          drawBlock(x + 7, y, zOffset + 1, 11, 7.5, 3.2, drawTopC, drawLeftC, drawRightC);
+          // Windshield/Roof
+          drawBlock(x + 8, y + 0.5, zOffset + 4.2, 7, 6.5, 3, drawTopC, glass, glass);
+        } else {
+          drawBlock(x + 2, y - 0.5, zOffset, 3.5, 1, 2, tire, tire, tire);
+          drawBlock(x + 13, y - 0.5, zOffset, 3.5, 1, 2, tire, tire, tire);
+          drawBlock(x + 2, y + 7, zOffset, 3.5, 1, 2, tire, tire, tire);
+          drawBlock(x + 13, y + 7, zOffset, 3.5, 1, 2, tire, tire, tire);
+          // Bed (Drawn first since cab overlaps it from the front)
+          drawBlock(x + 11, y, zOffset + 1, 7, 7.5, 3.2, drawTopC, drawLeftC, drawRightC);
+          // Cab 
+          drawBlock(x + 1, y, zOffset + 1, 11, 7.5, 3.2, drawTopC, '#111', '#111');
+          // Windshield/Roof
+          drawBlock(x + 3, y + 0.5, zOffset + 4.2, 7, 6.5, 3, drawTopC, glass, glass);
+        }
       } else if (type === 'boxTruck') {
-        drawFlatRect(x - 1, y - 0.5, 26, 9.5, 'rgba(0,0,0,0.3)');
-        drawBlock(x + 16, y, zOffset + 1, 8, 8.5, 5, '#d94136', adjustColor('#d94136', -15), adjustColor('#d94136', -30));
-        drawBlock(x, y, zOffset + 1.2, 16, 8.5, 9.5, '#f0f2f5', '#dcdfe3', '#c8cbcf');
+        drawFlatRect(x - 1, y - 0.5, 25, 9, 'rgba(0,0,0,0.3)');
+        if (!isFlipped) {
+          // Tires
+          drawBlock(x + 2, y - 0.5, zOffset, 4, 1, 2, tire, tire, tire);
+          drawBlock(x + 19, y - 0.5, zOffset, 3, 1, 2, tire, tire, tire);
+          drawBlock(x + 2, y + 7.5, zOffset, 4, 1, 2, tire, tire, tire);
+          drawBlock(x + 19, y + 7.5, zOffset, 3, 1, 2, tire, tire, tire);
+          // Box (White) with slight overhang over the cab
+          drawBlock(x, y, zOffset + 1.5, 17, 8, 9.5, '#f0f2f5', '#dcdfe3', '#c8cbcf');
+          // Cab (Red) (Drawn after Box to appear in front)
+          drawBlock(x + 16, y + 0.5, zOffset + 1, 7, 7, 5, '#d94136', adjustColor('#d94136', -15), adjustColor('#d94136', -30));
+          // Windshield
+          drawBlock(x + 20, y + 1, zOffset + 3.5, 3, 6, 2.5, '#d94136', glass, glass);
+        } else {
+          // Tires
+          drawBlock(x + 2, y - 0.5, zOffset, 3, 1, 2, tire, tire, tire);
+          drawBlock(x + 18, y - 0.5, zOffset, 4, 1, 2, tire, tire, tire);
+          drawBlock(x + 2, y + 7.5, zOffset, 3, 1, 2, tire, tire, tire);
+          drawBlock(x + 18, y + 7.5, zOffset, 4, 1, 2, tire, tire, tire);
+          // Cab (Red) (Drawn before Box because Box has higher X and is closer in projection)
+          drawBlock(x + 1, y + 0.5, zOffset + 1, 7, 7, 5, '#d94136', '#111', '#111');
+          // Windshield
+          drawBlock(x + 1, y + 1, zOffset + 3.5, 3, 6, 2.5, '#d94136', glass, glass);
+          // Box (White)
+          drawBlock(x + 7, y, zOffset + 1.5, 17, 8, 9.5, '#f0f2f5', '#dcdfe3', '#c8cbcf');
+        }
       }
     }
 
@@ -948,6 +1161,7 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
       honkBubbleTimer?: number;
       isStuckBehindVan?: boolean;
       isBurning?: boolean;
+      isEmergency?: boolean;
     }
 
     const activeVehicles: RoadObstacle[] = [
@@ -956,6 +1170,7 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
       { type: 'pickup', x: -280, y: 110, baseY: 110, targetY: 110, w: 18, d: 7.5, baseSpeed: 1.3, speed: 1.3, color: edmontonPalette[2].hex, stuckTimer: 0, honkCooldown: 0, honkBubbleTimer: 0 },
       { type: 'boxTruck', x: -420, y: 124, baseY: 124, targetY: 124, w: 24, d: 8.5, baseSpeed: 0.75, speed: 0.75, color: '', stuckTimer: 0, honkCooldown: 0, honkBubbleTimer: 0 }
     ];
+    let emergencyVehicles: RoadObstacle[] = [];
 
     interface DeliveryVan extends RoadObstacle {
       id: number;
@@ -1036,7 +1251,7 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
 
       const cx = gaugeCanvas.width / 2;
       const cy = gaugeCanvas.height - Math.max(10, Math.round(gaugeCanvas.height * 0.2));
-      const radius = Math.min(cx - 8, cy - 4);
+      const radius = Math.min(cx - 12, cy - 14); // Reduced radius to make room for text at top
       const lineWidth = Math.max(5, Math.round(radius * 0.16));
 
       const percentage = (curbsideCars / TOTAL_LEGAL_CURBSIDE_STALLS) * 100;
@@ -1070,7 +1285,7 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
       gaugeCtx.font = `bold ${fontSize}px "Open Sans", sans-serif`;
       gaugeCtx.textAlign = 'center';
       gaugeCtx.fillText('0%', cx - radius + 2, cy + fontSize + 2);
-      gaugeCtx.fillText('100%', cx, cy - radius - 2);
+      gaugeCtx.fillText('100%', cx, cy - radius - 10);
       gaugeCtx.fillText('200%', cx + radius - 2, cy + fontSize + 2);
 
       // Pointer Needle
@@ -1150,7 +1365,19 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
         const isBlockedByProtester = activeRoadProtesters.some(
           p => Math.abs(van.y - p.y) < 8.5 && p.x > van.x && p.x - (van.x + van.w) < 14
         );
-        if (isBlockedByProtester) {
+        
+        // Check if another van is ahead
+        let isBlockedByVan = false;
+        for (let j = 0; j < deliveryVansList.length; j++) {
+          const otherVan = deliveryVansList[j];
+          if (otherVan === van || otherVan.x <= van.x) continue;
+          if (Math.abs(van.y - otherVan.y) < 8.5 && otherVan.x - (van.x + van.w) < 20) {
+             isBlockedByVan = true;
+             break;
+          }
+        }
+
+        if (isBlockedByProtester || isBlockedByVan) {
           van.speed = 0;
         } else {
           van.x += van.speed || 1;
@@ -1211,10 +1438,23 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
         }
 
         van.speed = van.baseSpeed;
+        // Check if protesters ahead on the road are blocking the van
         const isBlockedByProtester = activeRoadProtesters.some(
           p => Math.abs(van.y - p.y) < 8.5 && p.x > van.x && p.x - (van.x + van.w) < 14
         );
-        if (isBlockedByProtester) {
+        
+        // Check if another van is ahead
+        let isBlockedByVan = false;
+        for (let j = 0; j < deliveryVansList.length; j++) {
+          const otherVan = deliveryVansList[j];
+          if (otherVan === van || otherVan.x <= van.x) continue;
+          if (Math.abs(van.y - otherVan.y) < 8.5 && otherVan.x - (van.x + van.w) < 20) {
+             isBlockedByVan = true;
+             break;
+          }
+        }
+
+        if (isBlockedByProtester || isBlockedByVan) {
           van.speed = 0;
         } else {
           van.x += van.speed || 1;
@@ -1332,6 +1572,17 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
       }
 
       const hasBurningCars = flippedCars.size > 0 || activeVehicles.some(v => v.isBurning) || isRioting;
+      
+      const numBurning = flippedCars.size + activeVehicles.filter(v => v.isBurning).length;
+      while (emergencyVehicles.length < numBurning * 2) {
+        const idx = Math.floor(emergencyVehicles.length / 2);
+        const isPolice = emergencyVehicles.length % 2 === 0;
+        if (isPolice) {
+          emergencyVehicles.push({ type: 'police', x: -800 - idx * 450, y: 117, baseY: 117, targetY: 117, w: 15, d: 7, baseSpeed: 2.2, speed: 2.2, color: '#ffffff', stuckTimer: 0, honkCooldown: 0, honkBubbleTimer: 0, isEmergency: true });
+        } else {
+          emergencyVehicles.push({ type: 'firetruck', x: -900 - idx * 450, y: 117, baseY: 117, targetY: 117, w: 28, d: 9, baseSpeed: 2.0, speed: 2.0, color: '#cc0000', stuckTimer: 0, honkCooldown: 0, honkBubbleTimer: 0, isEmergency: true });
+        }
+      }
 
       // Find road positions of all burning vehicles
       const burningRoadLocations: number[] = [];
@@ -1454,6 +1705,7 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
       }
 
       for (let i = 0; i < activeVehicles.length; i++) allRoadObstacles.push(activeVehicles[i]);
+      for (let i = 0; i < emergencyVehicles.length; i++) allRoadObstacles.push(emergencyVehicles[i]);
       for (let i = 0; i < activeMicroCount; i++) allRoadObstacles.push(microMobility[i]);
 
       const BASE_BUFFER = 3.5;
@@ -1468,41 +1720,63 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
         const A = allRoadObstacles[i];
         if (A.speed === undefined || A.isStatic) continue;
 
+        if (A.isEmergency && !isRioting && A.x < -100) {
+          A.x = -800; // Park them
+          continue;
+        }
+
+        let emergencyApproaching = false;
+        if (!A.isEmergency) {
+          for (let j = staticObstacleCount; j < roadObstacleCount; j++) {
+            const E = allRoadObstacles[j];
+            if (E.isEmergency && E.x > -400 && E.x < blockLength) {
+              emergencyApproaching = true;
+              break;
+            }
+          }
+        }
+
         let targetLane = A.baseY || 110;
         const isCar_A = carTypes.includes(A.type);
         const detectionBuffer_A = BASE_BUFFER + (isCar_A ? CAR_EXTRA_BUFFER : MICRO_EXTRA_BUFFER);
 
-        let isBlockedInLane = false;
-        for (let j = 0; j < roadObstacleCount; j++) {
-          const B = allRoadObstacles[j];
-          if (A === B || (B.speed || 0) > 0.2) continue;
-          if (Math.abs(A.y - B.y) < 8 && B.x > A.x && B.x - (A.x + A.w) < 45) {
-            isBlockedInLane = true;
-            break;
-          }
-        }
-
-        if (isBlockedInLane) {
-          const altLane = (A.baseY || 110) < 115 ? 124 : 110;
-          let altClear = true;
-          for (let j = staticObstacleCount; j < roadObstacleCount; j++) {
+        let isPullingOver = false;
+        if (emergencyApproaching) {
+          targetLane = 100; // Pull over to the left
+          isPullingOver = true;
+        } else {
+          let isBlockedInLane = false;
+          for (let j = 0; j < roadObstacleCount; j++) {
             const B = allRoadObstacles[j];
-            if (A === B) continue;
-            if (Math.abs(B.y - altLane) < 8 && Math.abs(B.x - A.x) < 28) {
-              altClear = false;
+            if (A === B || (B.speed || 0) > 0.2) continue;
+            if (Math.abs(A.y - B.y) < 8 && B.x > A.x && B.x - (A.x + A.w) < 45) {
+              isBlockedInLane = true;
               break;
             }
           }
-          // Also check if altLane is blocked by protesters
-          if (hasBurningCars) {
-            for (const rp of activeRoadProtesters) {
-              if (Math.abs(rp.y - altLane) < 8 && Math.abs(rp.x - A.x) < 32) {
+
+          if (isBlockedInLane) {
+            const altLane = (A.baseY || 110) < 115 ? 124 : 110;
+            let altClear = true;
+            for (let j = staticObstacleCount; j < roadObstacleCount; j++) {
+              const B = allRoadObstacles[j];
+              if (A === B) continue;
+              if (Math.abs(B.y - altLane) < 8 && Math.abs(B.x - A.x) < 28) {
                 altClear = false;
                 break;
               }
             }
+            // Also check if altLane is blocked by protesters
+            if (hasBurningCars) {
+              for (const rp of activeRoadProtesters) {
+                if (Math.abs(rp.y - altLane) < 8 && Math.abs(rp.x - A.x) < 32) {
+                  altClear = false;
+                  break;
+                }
+              }
+            }
+            if (altClear) targetLane = altLane;
           }
-          if (altClear) targetLane = altLane;
         }
 
         if (Math.abs(A.y - targetLane) > 0.5) {
@@ -1511,7 +1785,7 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
           A.y = targetLane;
         }
 
-        A.speed = A.baseSpeed || BASE_CAR_SPEED;
+        A.speed = isPullingOver ? 0.3 : (A.baseSpeed || BASE_CAR_SPEED); // Slow down significantly when pulling over
         let targetX = A.x + A.speed;
         let blockingObstacle: RoadObstacle | null = null;
 
@@ -1577,6 +1851,10 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
         }
 
         if (A.x > blockLength + 80) {
+          if (A.isEmergency && !isRioting) {
+            A.x = -800;
+            continue;
+          }
           let respawnX = -60;
           for (let j = staticObstacleCount; j < roadObstacleCount; j++) {
             const B = allRoadObstacles[j];
@@ -1601,37 +1879,42 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
       // Layer 2: Houses (drawn on background behind vehicles in front of them)
       ctx!.drawImage(bgHousesCanvas, 0, 0);
 
-      // Layer 3: Cars (Parked Cars in Driveways & Curb + Active Vans + Road Traffic)
+      // Layer 3: Vehicles (Parked Cars, Vans, Emergency, Active Traffic)
+      // Grouping all vehicle graphic asset layers together and sorting by depth (Y-axis) for proper collision visual overlap
+      const renderQueue: any[] = [];
+      
       for (let i = 0; i < totalToRender; i++) {
         const car = houseCarAssignments[activeIndices[i]];
-        // Visitor cars rendered in white
         const carColor = i >= activeHouseholdCars ? '#ffffff' : car.color;
-        // Strict Invariant: ONLY cars on the road (y >= 90) can burn. Driveway cars (y < 70) NEVER burn.
         const isFlipped = car.y >= 90 && flippedCars.has(i);
-        drawVehicle(car.x, car.y, 0, car.type, carColor, isFlipped);
-        if (isFlipped) {
-          spawnFireParticle(car.x + 3, car.y + 3, 4);
-          spawnFireParticle(car.x + 8, car.y + 2, 4);
-          if (Math.random() < 0.4) {
-            spawnFireParticle(car.x + 12, car.y + 3, 3);
-          }
-        }
+        renderQueue.push({ ...car, color: carColor, isFlipped, sortY: car.y });
       }
-
       for (let i = 0; i < deliveryVansList.length; i++) {
         const van = deliveryVansList[i];
-        drawVehicle(van.x, van.y, 0, van.type, van.color || '#FF5500');
+        renderQueue.push({ ...van, color: van.color || '#FF5500', isFlipped: false, sortY: van.y });
       }
-
+      for (let i = 0; i < emergencyVehicles.length; i++) {
+        const v = emergencyVehicles[i];
+        renderQueue.push({ ...v, color: v.color || '#ffffff', isFlipped: false, sortY: v.y });
+      }
       for (let i = 0; i < activeVehicles.length; i++) {
         const v = activeVehicles[i];
         const isVBurning = Boolean(v.isBurning);
-        drawVehicle(v.x, v.y, 0, v.type, v.color || '#0081BC', isVBurning);
-        if (isVBurning) {
-          spawnFireParticle(v.x + 3, v.y + 2, 4);
-          spawnFireParticle(v.x + 8, v.y + 3, 4);
-        } else if ((v.honkBubbleTimer || 0) > 0) {
-          drawHonkBubble(v.x, v.y, 0);
+        renderQueue.push({ ...v, color: v.color || '#0081BC', isFlipped: isVBurning, sortY: v.y, honkBubbleTimer: v.honkBubbleTimer });
+      }
+
+      // Sort by Y-coordinate for proper isometric depth rendering (objects lower on screen drawn last)
+      renderQueue.sort((a, b) => a.sortY - b.sortY);
+
+      for (const item of renderQueue) {
+        drawVehicle(item.x, item.y, 0, item.type, item.color, item.isFlipped);
+        
+        if (item.isFlipped) {
+          spawnFireParticle(item.x + 3, item.y + 3, 4);
+          spawnFireParticle(item.x + 8, item.y + 2, 4);
+          if (Math.random() < 0.4) spawnFireParticle(item.x + 12, item.y + 3, 3);
+        } else if (item.honkBubbleTimer && item.honkBubbleTimer > 0) {
+          drawHonkBubble(item.x, item.y, 0);
         }
       }
 
@@ -1791,14 +2074,24 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
       className="relative w-full h-full min-h-0 flex items-center justify-center bg-[#193A5A] overflow-hidden select-none"
     >
       {/* 2.5D Isometric Main Stage */}
-      <div className="relative w-full h-full flex items-center justify-center p-0.5 sm:p-1 overflow-hidden">
+      <div 
+        className="relative w-full h-full flex items-center justify-center p-0.5 sm:p-1 overflow-hidden touch-none"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
+        onWheel={handleWheel}
+      >
         <canvas
           ref={canvasRef}
           id="cityCanvas"
           width={1200}
           height={800}
-          className="w-full h-full max-h-[100%] object-contain rounded-lg shadow-2xl block cursor-crosshair scale-[1.33] origin-center transition-transform"
+          className="w-full h-full max-h-[100%] object-contain rounded-lg shadow-2xl block cursor-crosshair origin-center"
+          style={{ transform: `scale(${zoomScale})` }}
           title="Live Edmonton Multimodal Neighborhood Simulation - Click road cars to toggle fire, click elsewhere to honk"
+          role="img"
+          aria-label="Live 2.5D Isometric Neighborhood Simulation showing residential parking, driveways, and road traffic based on the active policy settings."
           onClick={(e) => {
             getAudioContext();
             const canvas = canvasRef.current;
@@ -1810,7 +2103,9 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
             const clickY = (e.clientY - rect.top) * scaleY;
             handleCanvasClickRef.current?.(clickX, clickY);
           }}
-        />
+        >
+          <p>Your browser does not support the canvas element needed to render the neighborhood simulation.</p>
+        </canvas>
 
         {/* Breaking News Riot Overlay (appears at critical overload or vehicle fire) */}
         {isRiotActive && (
@@ -1854,7 +2149,7 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
         )}
 
         {/* Top Right HUD: Audio + Gauge + Manual Controls Toggle */}
-        <div className="absolute top-1.5 right-1.5 sm:top-3 sm:right-3 z-20 flex flex-col items-end gap-1 sm:gap-2">
+        <div className="absolute top-1.5 right-1.5 sm:top-3 sm:right-3 z-20 flex flex-col items-stretch gap-1 sm:gap-2">
           <div className="flex items-center gap-0.5 sm:gap-1 bg-[#193A5A]/90 backdrop-blur-md border border-[#0081BC]/40 p-0.5 sm:p-1.5 rounded-md sm:rounded-lg shadow-lg">
             {/* Audio Toggle */}
             <button
@@ -1883,7 +2178,9 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
                 setShowControls((prev) => !prev);
               }}
               title="Toggle Manual Simulation Sliders"
-              className={`p-1 sm:p-1.5 rounded-md transition-colors flex items-center gap-1 text-[11px] sm:text-xs font-semibold cursor-pointer active:scale-95 ${
+              aria-expanded={showControls}
+              aria-controls="manual-sliders-drawer"
+              className={`p-1 sm:p-1.5 rounded-md transition-colors flex items-center gap-1 text-[11px] sm:text-xs font-semibold cursor-pointer active:scale-95 min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFC72C] ${
                 showControls
                   ? 'bg-[#0081BC] text-white'
                   : 'bg-black/40 text-gray-300 hover:text-white'
@@ -1902,7 +2199,8 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
                 handleReshuffle();
               }}
               title="Randomize Parking Distribution"
-              className="p-1 sm:p-1.5 rounded-md bg-black/40 text-gray-300 hover:text-white transition-colors cursor-pointer active:scale-95"
+              aria-label="Randomize Parking Distribution"
+              className="p-1 sm:p-1.5 rounded-md bg-black/40 text-gray-300 hover:text-white transition-colors cursor-pointer active:scale-95 min-h-[44px] min-w-[44px] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFC72C]"
             >
               <RefreshCw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
@@ -1921,7 +2219,7 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
                 {curbsidePct}%
               </span>
             </div>
-            <canvas ref={gaugeCanvasRef} width={120} height={60} className="w-[54px] sm:w-[120px] h-auto block" />
+            <canvas ref={gaugeCanvasRef} width={120} height={60} className="w-full h-auto block" />
             <span className="text-[7px] sm:text-[10px] font-semibold text-gray-200 mt-0.5 whitespace-nowrap">
               {curbsideDemandCount}/{TOTAL_LEGAL_CURBSIDE_STALLS} Cars
             </span>
@@ -1939,11 +2237,12 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
                 </span>
                 <button
                   type="button"
+                  aria-label="Close manual sliders"
                   onClick={() => {
                     triggerFeedback('button');
                     setShowControls(false);
                   }}
-                  className="text-gray-400 hover:text-white px-1 font-bold text-sm cursor-pointer active:scale-95"
+                  className="text-gray-400 hover:text-white flex items-center justify-center min-w-[44px] min-h-[44px] font-bold text-sm cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFC72C] rounded"
                 >
                   ✕
                 </button>
@@ -1959,6 +2258,7 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
                 </div>
                 <input
                   type="range"
+                  aria-label="Cars per household"
                   min="0"
                   max="5"
                   step="0.25"
@@ -1980,6 +2280,7 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
                 </div>
                 <input
                   type="range"
+                  aria-label="Visitor passes per home"
                   min="0"
                   max="5"
                   step="0.25"
@@ -2001,6 +2302,7 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
                 </div>
                 <input
                   type="range"
+                  aria-label="Driveway capacity (spots)"
                   min="1"
                   max="2"
                   step="1"
@@ -2022,6 +2324,7 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
                 </div>
                 <input
                   type="range"
+                  aria-label="Weekly deliveries per home"
                   min="1"
                   max="4"
                   step="0.25"
@@ -2045,7 +2348,7 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
                       triggerFeedback('button');
                       toggleRoadFire();
                     }}
-                    className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-all flex items-center gap-1 cursor-pointer active:scale-95 ${
+                    className={`px-2 py-1 min-h-[44px] rounded text-[10px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFC72C] ${
                       isRiotActive
                         ? 'bg-[#E8552D] text-white hover:bg-[#c2410c] animate-pulse'
                         : 'bg-gray-800 text-[#FFC72C] hover:bg-gray-700 hover:text-white border border-gray-600'
@@ -2061,7 +2364,7 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
                       triggerFeedback('button');
                       handleReshuffle();
                     }}
-                    className="text-[#FFC72C] hover:underline font-semibold cursor-pointer active:scale-95"
+                    className="text-[#FFC72C] hover:underline font-semibold cursor-pointer active:scale-95 px-2 min-h-[44px] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFC72C] rounded"
                   >
                     Reshuffle
                   </button>
@@ -2071,27 +2374,29 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
           )}
         </div>
 
-        {/* Bottom Right Legend Badge */}
-        <div className="absolute bottom-2 right-2 sm:bottom-3 sm:right-3 z-10 hidden sm:flex items-center gap-2 sm:gap-3 bg-black/60 backdrop-blur-sm px-2 py-0.5 sm:px-2.5 sm:py-1 rounded text-[9px] sm:text-[10px] text-gray-300 border border-white/10 pointer-events-none">
-          <span className="flex items-center gap-1">
-            <span className="w-2 sm:w-2.5 h-1.5 rounded-xs sm:rounded-sm bg-[#DC2626]" /> Hydrant (5m Clear)
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="w-2 sm:w-2.5 h-1.5 rounded-xs sm:rounded-sm bg-[#FBBF24]" /> Driveway (1.5m Clear)
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="w-2 sm:w-2.5 h-1.5 rounded-xs sm:rounded-sm bg-[#FF5500]" /> Fleet
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="w-2 sm:w-2.5 h-1.5 rounded-xs sm:rounded-sm bg-white border border-gray-400" /> Visitor
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="w-2 sm:w-2.5 h-1.5 rounded-xs sm:rounded-sm bg-[#0081BC]" /> Resident
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="w-2 sm:w-2.5 h-1.5 rounded-xs sm:rounded-sm bg-[#009A44]" /> Bikes &amp; Walkers
-          </span>
+        {/* Zoom Controls (Bottom Left) */}
+        <div className="absolute bottom-2 left-2 sm:bottom-3 sm:left-3 z-10 flex flex-col gap-1 bg-black/60 backdrop-blur-sm p-1 rounded-lg border border-white/10">
+          <button 
+            type="button"
+            onClick={() => setZoomScale(s => Math.min(4, s + 0.25))}
+            className="w-11 h-11 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/20 active:bg-white/30 rounded font-bold text-xl cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white transition-colors"
+            title="Zoom In"
+            aria-label="Zoom In"
+          >
+            +
+          </button>
+          <button 
+            type="button"
+            onClick={() => setZoomScale(s => Math.max(0.5, s - 0.25))}
+            className="w-11 h-11 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/20 active:bg-white/30 rounded font-bold text-xl cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white transition-colors"
+            title="Zoom Out"
+            aria-label="Zoom Out"
+          >
+            -
+          </button>
         </div>
+
+
       </div>
     </div>
   );
