@@ -5,7 +5,8 @@ import { ResultsView } from './components/ResultsView';
 import {
   SURVEY_QUESTIONS,
   INITIAL_SIM_CONFIG,
-  calculatePersona
+  calculatePersona,
+  validatePostalCode
 } from './data/surveyData';
 import { SimulationConfig } from './types';
 import { Compass, RotateCcw } from 'lucide-react';
@@ -46,6 +47,7 @@ export default function App() {
     }
   });
   const [showValidationError, setShowValidationError] = useState<boolean>(false);
+  const [validationErrorMsg, setValidationErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
     localStorage.setItem('curbsideCompass_step', currentStep.toString());
@@ -66,7 +68,26 @@ export default function App() {
     'Default neighborhood layout active (2.5 cars/home, 0.5 visitor passes, 3 driveway spots).'
   );
   const [soundEnabled, setSoundEnabled] = useState<boolean>(feedback.isSoundEnabled());
-  const [fontSizePt, setFontSizePt] = useState<number>(12); // Default 12pt (16px)
+  const [hasManuallyChangedFont, setHasManuallyChangedFont] = useState(false);
+  const [fontSizePt, setFontSizePt] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const isTabletPortrait = window.matchMedia('(min-width: 768px) and (max-width: 1023px) and (orientation: portrait)').matches;
+      return isTabletPortrait ? 14 : 12;
+    }
+    return 12;
+  }); // Default 12pt, or 14pt on tablet portrait
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mediaQuery = window.matchMedia('(min-width: 768px) and (max-width: 1023px) and (orientation: portrait)');
+    const handler = (e: MediaQueryListEvent) => {
+      if (!hasManuallyChangedFont) {
+        setFontSizePt(e.matches ? 14 : 12);
+      }
+    };
+    mediaQuery.addEventListener('change', handler);
+    return () => mediaQuery.removeEventListener('change', handler);
+  }, [hasManuallyChangedFont]);
 
   useEffect(() => {
     // 1pt = 96/72 pixels
@@ -122,13 +143,20 @@ export default function App() {
   // Handle option selection
   const handleSelectOption = (questionId: string, optionId: string) => {
     setShowValidationError(false);
+    setValidationErrorMsg(null);
     const newAnswers = { ...selectedAnswers, [questionId]: optionId };
     setSelectedAnswers(newAnswers);
 
-    // Find the option to apply simulation effects
     const question = SURVEY_QUESTIONS.find((q) => q.id === questionId);
-    const option = question?.options.find((opt) => opt.id === optionId);
+    if (question?.type === 'text' || questionId === 'q9') {
+      const trimmed = optionId.trim();
+      if (trimmed) {
+        setPolicyNote(`Edmonton postal code ${trimmed.toUpperCase()} recorded for local neighbourhood spatial analysis.`);
+      }
+      return;
+    }
 
+    const option = question?.options.find((opt) => opt.id === optionId);
     if (option) {
       if (option.simEffects) {
         setSimConfig((prev) => ({
@@ -150,11 +178,23 @@ export default function App() {
   const handleNavigate = (direction: number) => {
     if (direction === 1) {
       const currentQuestion = SURVEY_QUESTIONS[currentStep];
-      if (!selectedAnswers[currentQuestion.id]) {
+      const answer = selectedAnswers[currentQuestion.id];
+
+      if (currentQuestion.type === 'text' || currentQuestion.id === 'q9') {
+        const valResult = validatePostalCode(answer || '');
+        if (!valResult.isValid) {
+          setValidationErrorMsg(valResult.message || 'Please enter a 6 or 7 character alphanumeric postal code.');
+          setShowValidationError(true);
+          return;
+        }
+      } else if (!answer) {
+        setValidationErrorMsg('Please select an option to advance.');
         setShowValidationError(true);
         return;
       }
+
       setShowValidationError(false);
+      setValidationErrorMsg(null);
 
       if (currentStep >= SURVEY_QUESTIONS.length - 1) {
         setIsCompleted(true);
@@ -163,6 +203,7 @@ export default function App() {
       }
     } else {
       setShowValidationError(false);
+      setValidationErrorMsg(null);
       if (currentStep > 0) {
         setCurrentStep((prev) => prev - 1);
       }
@@ -176,6 +217,7 @@ export default function App() {
     setCurrentStep(0);
     setIsCompleted(false);
     setShowValidationError(false);
+    setValidationErrorMsg(null);
     setSimConfig(INITIAL_SIM_CONFIG);
     setPolicyNote('Simulation reset to baseline configuration.');
   };
@@ -197,19 +239,19 @@ export default function App() {
         </div>
 
         <div className="flex items-center gap-1.5 sm:gap-2.5 flex-shrink-0">
-          <div className="flex items-center bg-[#003566] rounded border border-[#002244] overflow-hidden flex-shrink-0">
+          <div className="flex items-center bg-[#003566] rounded-md border border-[#002244] overflow-hidden flex-shrink-0">
             <button
-              onClick={() => setFontSizePt(f => Math.max(8, f - 2))}
-              className="w-10 h-8 sm:w-11 sm:h-9 flex items-center justify-center text-gray-300 hover:bg-[#002244] hover:text-white active:bg-black/30 transition-all font-bold text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFC72C] focus-visible:ring-inset"
+              onClick={() => { setHasManuallyChangedFont(true); setFontSizePt(f => Math.max(8, f - 2)); }}
+              className="w-11 h-11 flex items-center justify-center text-gray-300 hover:bg-[#002244] hover:text-white active:bg-black/30 transition-all font-bold text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFC72C] focus-visible:ring-inset cursor-pointer"
               title="Decrease font size (-2pt)"
               aria-label="Decrease font size"
             >
               A-
             </button>
-            <div className="w-[1px] h-5 bg-[#002244]" />
+            <div className="w-[1px] h-6 bg-[#002244]" />
             <button
-              onClick={() => setFontSizePt(f => Math.min(24, f + 2))}
-              className="w-10 h-8 sm:w-11 sm:h-9 flex items-center justify-center text-gray-300 hover:bg-[#002244] hover:text-white active:bg-black/30 transition-all font-bold text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFC72C] focus-visible:ring-inset"
+              onClick={() => { setHasManuallyChangedFont(true); setFontSizePt(f => Math.min(24, f + 2)); }}
+              className="w-11 h-11 flex items-center justify-center text-gray-300 hover:bg-[#002244] hover:text-white active:bg-black/30 transition-all font-bold text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFC72C] focus-visible:ring-inset cursor-pointer"
               title="Increase font size (+2pt)"
               aria-label="Increase font size"
             >
@@ -253,11 +295,15 @@ export default function App() {
       </header>
 
       {/* Primary Split Viewport: Stacked on mobile portrait, side-by-side on desktop, tablet, and mobile landscape */}
-      <main className="flex flex-col md:flex-row [@media(orientation:landscape)_and_(max-height:540px)]:flex-row flex-grow h-[calc(100dvh-40px)] sm:h-[calc(100dvh-44px)] overflow-hidden">
-        {/* Simulation Section: On mobile vertical and mobile landscape, collapsed and hidden when on Assessment Result screen */}
+      <main className="flex flex-col lg:flex-row [@media(orientation:landscape)_and_(max-height:540px)]:flex-row flex-grow h-[calc(100dvh-40px)] sm:h-[calc(100dvh-44px)] overflow-hidden">
+        {/* Simulation Section: Ergonomic mobile height (38vh max 320px on small screens) to give survey plenty of room */}
         <section
           id="simulation-section"
-          className={`relative bg-[#193A5A] flex-shrink-0 shadow-inner overflow-hidden border-[#004B8D] border-b-2 md:border-b-0 md:border-r-2 ${isCompleted ? "hidden md:block" : "w-full h-[50vh] min-h-[250px] sm:h-[50vh]"} md:h-full md:max-h-none md:w-[48%] lg:w-[50%] xl:w-[52%] [@media(orientation:landscape)_and_(max-height:540px)]:h-full [@media(orientation:landscape)_and_(max-height:540px)]:w-1/2 [@media(orientation:landscape)_and_(max-height:540px)]:border-b-0 [@media(orientation:landscape)_and_(max-height:540px)]:border-r-2`}
+          className={`relative bg-[#193A5A] flex-shrink-0 shadow-inner overflow-hidden border-[#004B8D] border-b-2 lg:border-b-0 lg:border-r-2 ${
+            isCompleted
+              ? "hidden lg:block"
+              : "w-full h-[38vh] min-h-[190px] max-h-[320px] sm:h-[45vh] sm:max-h-none"
+          } lg:h-full lg:max-h-none lg:w-[48%] xl:w-[50%] 2xl:w-[52%] [@media(orientation:landscape)_and_(max-height:540px)]:h-full [@media(orientation:landscape)_and_(max-height:540px)]:w-1/2 [@media(orientation:landscape)_and_(max-height:540px)]:border-b-0 [@media(orientation:landscape)_and_(max-height:540px)]:border-r-2`}
           aria-label="Neighborhood Parking Simulation View"
         >
           <NeighborhoodSimulation
@@ -272,7 +318,7 @@ export default function App() {
         {/* Interactive Survey or Results View */}
         <section
           id="survey-section"
-          className={`w-full flex-1 flex flex-col justify-between overflow-y-auto overflow-x-hidden min-h-0 bg-[#ffffff] md:h-full [@media(orientation:landscape)_and_(max-height:540px)]:h-full ${isCompleted ? "w-full md:w-[52%] lg:w-[50%] xl:w-[48%]" : "md:w-[52%] lg:w-[50%] xl:w-[48%] [@media(orientation:landscape)_and_(max-height:540px)]:w-1/2"}`}
+          className={`w-full flex-1 flex flex-col justify-between overflow-y-auto overflow-x-hidden min-h-0 bg-[#ffffff] lg:h-full [@media(orientation:landscape)_and_(max-height:540px)]:h-full ${isCompleted ? "w-full lg:w-[52%] xl:w-[50%] 2xl:w-[48%]" : "lg:w-[52%] xl:w-[50%] 2xl:w-[48%] [@media(orientation:landscape)_and_(max-height:540px)]:w-1/2"}`}
           aria-label="Parking Policy Persona Survey"
         >
           {!isCompleted ? (
@@ -283,6 +329,7 @@ export default function App() {
               onSelectOption={handleSelectOption}
               onNavigate={handleNavigate}
               showValidationError={showValidationError}
+              validationErrorMsg={validationErrorMsg}
               totalX={totalX}
               totalY={totalY}
             />
@@ -292,6 +339,7 @@ export default function App() {
               totalX={totalX}
               totalY={totalY}
               config={simConfig}
+              postalCode={selectedAnswers['q9']}
               onRetake={handleRetake}
             />
           )}

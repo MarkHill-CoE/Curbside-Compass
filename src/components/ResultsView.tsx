@@ -10,6 +10,7 @@ interface ResultsViewProps {
   totalX: number;
   totalY: number;
   config: SimulationConfig;
+  postalCode?: string;
   onRetake?: () => void;
 }
 
@@ -18,6 +19,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
   totalX,
   totalY,
   config,
+  postalCode,
   onRetake
 }) => {
   const [rating, setRating] = useState<number | null>(null);
@@ -30,6 +32,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
       <ThankYouView
         persona={persona}
         config={config}
+        postalCode={postalCode}
         onViewResults={() => setSubmitted(false)}
         onRetake={onRetake}
       />
@@ -40,38 +43,38 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
   if (step === 1) {
     return (
       <div className="w-full max-w-4xl mx-auto h-full flex flex-col justify-between p-2 sm:p-4 overflow-y-auto">
-        <div className="flex-grow flex flex-col gap-2">
-          {/* Policy Compass Graph */}
-          <div className="bg-white border border-gray-200 rounded-xl p-3 shadow-xs h-[45vh] sm:h-[50vh] flex flex-col items-center justify-center">
+        <div className="flex-grow flex flex-col gap-2 sm:gap-2.5 min-h-0">
+          {/* Policy Compass Graph - Responsive height on mobile vertical and landscape so all text and next button remain above the fold */}
+          <div className="bg-white border border-gray-200 rounded-xl p-1.5 sm:p-3 shadow-xs h-[30vh] max-h-[250px] min-h-[170px] [@media(orientation:landscape)_and_(max-height:540px)]:h-[48vh] [@media(orientation:landscape)_and_(max-height:540px)]:max-h-[180px] [@media(orientation:landscape)_and_(max-height:540px)]:min-h-[140px] sm:h-[36vh] sm:max-h-[300px] flex flex-col items-center justify-center flex-shrink-0">
             <PolicyCompassGraph persona={persona} totalX={totalX} totalY={totalY} />
           </div>
 
           {/* Persona Info */}
-          <div className="bg-white border border-gray-200 rounded-xl p-2 sm:p-2.5 shadow-xs flex-1 flex flex-col justify-center">
-            <div className="flex items-center gap-2 mb-2">
+          <div className="bg-white border border-gray-200 rounded-xl p-2 sm:p-3 shadow-xs flex-1 flex flex-col justify-center min-h-0">
+            <div className="flex items-center gap-2 sm:gap-2.5 mb-1 sm:mb-2 flex-shrink-0">
               <div
-                className="w-10 h-10 rounded-lg flex items-center justify-center text-white shadow-xs flex-shrink-0"
+                className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center text-white shadow-xs flex-shrink-0"
                 style={{ backgroundColor: persona.badgeColor }}
               >
-                <Award className="w-6 h-6" />
+                <Award className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
-              <h2 className="text-sm sm:text-base md:text-lg font-black text-gray-900 leading-tight">
+              <h2 className="text-sm sm:text-base md:text-xl font-black text-gray-900 leading-tight truncate">
                 {persona.title}
               </h2>
             </div>
-            <p className="text-sm sm:text-base md:text-lg font-medium text-gray-800 leading-snug">
+            <p className="text-xs sm:text-sm md:text-base font-medium text-gray-800 leading-snug overflow-y-auto">
               {persona.description}
             </p>
           </div>
         </div>
 
-        {/* Next Button Footer - Lower Right */}
-        <div className="mt-2 flex justify-end">
+        {/* Next Button Footer - Accessible 44px min touch target */}
+        <div className="mt-1.5 sm:mt-2.5 flex justify-end flex-shrink-0">
           <button
             onClick={() => setStep(2)}
-            className="flex items-center justify-center gap-2 px-5 py-2.5 bg-[#004B8D] text-white rounded-lg font-bold shadow hover:bg-[#003866] transition-colors active:scale-95 text-sm min-h-[36px]"
+            className="flex items-center justify-center gap-2 px-5 sm:px-6 py-2 sm:py-2.5 bg-[#004B8D] text-white rounded-lg font-bold shadow hover:bg-[#003866] transition-colors active:scale-95 text-xs sm:text-sm min-h-[44px] min-w-[44px] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-[#004B8D]"
           >
-            Next <ChevronRight className="w-4 h-4" />
+            Next: Share Feedback <ChevronRight className="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -80,34 +83,34 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
 
   // Step 2: Policy Details & Feedback
   return (
-    <div className="w-full max-w-4xl mx-auto h-full flex flex-col gap-1.5 sm:gap-2 p-1.5 sm:p-2.5 md:p-3 overflow-y-auto">
+    <div className="w-full max-w-4xl mx-auto h-full flex flex-col justify-between gap-1.5 sm:gap-2 p-1.5 sm:p-2.5 md:p-3 overflow-y-auto">
       
       {/* Compass Result Section at the very top */}
       <div className="bg-white border border-gray-200 rounded-xl p-2 sm:p-2.5 shadow-xs flex-shrink-0">
-        <h3 className="text-[0.625rem] sm:text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5 sm:mb-2 flex items-center gap-1.5">
-          <Compass className="w-4 h-4 text-[#0081BC]" />
+        <h3 className="text-[0.625rem] sm:text-xs font-bold uppercase tracking-wider text-gray-500 mb-1 sm:mb-1.5 flex items-center gap-1.5">
+          <Compass className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0081BC]" />
           Your Curbside Compass Result
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-1.5 sm:gap-2">
-          <div className="md:col-span-1 bg-blue-50/80 border border-blue-100 rounded-lg px-2 py-2 flex items-center text-sm gap-2 h-full">
-            <div className="w-8 h-8 rounded-md flex items-center justify-center text-white shadow-xs flex-shrink-0" style={{ backgroundColor: persona.badgeColor }}>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 sm:gap-2">
+          <div className="sm:col-span-1 bg-blue-50/80 border border-blue-100 rounded-lg px-2 py-1.5 sm:py-2 flex items-center text-xs sm:text-sm gap-2 h-full">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center text-white shadow-xs flex-shrink-0" style={{ backgroundColor: persona.badgeColor }}>
               <Award className="w-4 h-4" />
             </div>
-            <span className="font-bold text-[#005087] leading-tight">
+            <span className="font-bold text-[#005087] leading-tight text-xs sm:text-sm">
               {persona.title}
             </span>
           </div>
-          <div className="md:col-span-2 grid grid-cols-2 gap-1.5 sm:gap-2">
-            <div className="bg-gray-50 p-2 rounded-lg border border-gray-200 flex flex-col justify-center">
-              <span className="text-gray-500 block text-[0.625rem] sm:text-xs mb-1">Curbside Fee Model</span>
-              <span className="font-bold capitalize text-gray-800 text-xs sm:text-sm">
+          <div className="sm:col-span-2 grid grid-cols-2 gap-1.5 sm:gap-2">
+            <div className="bg-gray-50 p-1.5 sm:p-2 rounded-lg border border-gray-200 flex flex-col justify-center">
+              <span className="text-gray-500 block text-[0.625rem] sm:text-xs mb-0.5">Curbside Fee Model</span>
+              <span className="font-bold capitalize text-gray-800 text-xs sm:text-sm truncate">
                 {config.curbsideFeeModel}
               </span>
             </div>
-            <div className="bg-gray-50 p-2 rounded-lg border border-gray-200 flex flex-col justify-center">
-              <span className="text-gray-500 block text-[0.625rem] sm:text-xs mb-1">Enforcement Level</span>
-              <span className="font-bold capitalize text-gray-800 flex items-center gap-1.5 text-xs sm:text-sm">
-                <Shield className="w-4 h-4 text-[#009A44] flex-shrink-0" />
+            <div className="bg-gray-50 p-1.5 sm:p-2 rounded-lg border border-gray-200 flex flex-col justify-center">
+              <span className="text-gray-500 block text-[0.625rem] sm:text-xs mb-0.5">Enforcement Level</span>
+              <span className="font-bold capitalize text-gray-800 flex items-center gap-1.5 text-xs sm:text-sm truncate">
+                <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#009A44] flex-shrink-0" />
                 {config.enforcementLevel}
               </span>
             </div>
@@ -115,14 +118,53 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
         </div>
       </div>
 
+      {/* Two Column Priorities & Edmonton Policy Context */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5 sm:gap-2 items-stretch flex-shrink-0">
+        
+        {/* Left Column: You Believe */}
+        <div className="flex flex-col">
+          <div className="bg-white border border-gray-200 rounded-xl p-2 sm:p-2.5 shadow-xs flex flex-col h-full justify-center">
+            <h4 className="text-[0.625rem] sm:text-xs font-bold uppercase tracking-wider text-gray-600 mb-1 sm:mb-1.5">
+              You Believe
+            </h4>
+            <ul className="space-y-1 sm:space-y-1.5 text-xs sm:text-sm text-gray-800 w-full px-0.5">
+              {persona.keyPriorities.map((priority, idx) => (
+                <li key={idx} className="flex items-start gap-1.5 sm:gap-2 leading-tight">
+                  <CheckCircle className="w-3.5 h-3.5 text-[#009A44] flex-shrink-0 mt-0.5" />
+                  <span>{priority}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        {/* Right Column: Postscript */}
+        <div className="flex flex-col">
+          <div className="bg-white border border-gray-200 rounded-xl p-2 sm:p-2.5 shadow-xs flex flex-col h-full justify-center">
+            <div className="flex items-center gap-1.5 mb-1 sm:mb-1.5">
+              <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-md bg-[#0081BC]/10 flex items-center justify-center flex-shrink-0">
+                <MapPin className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#0081BC]" />
+              </div>
+              <h3 className="text-[0.625rem] sm:text-xs font-bold uppercase tracking-wider text-[#004B8D] truncate">
+                Edmonton Alignment
+              </h3>
+            </div>
+            <p className="text-xs text-gray-700 leading-snug bg-gray-50 p-2 rounded-lg border border-gray-200 line-clamp-4 sm:line-clamp-none">
+              {persona.edmontonPolicyFit}
+            </p>
+          </div>
+        </div>
+        
+      </div>
+
       {/* Feedback Section */}
-      <div className="bg-white border border-gray-200 rounded-xl p-3 shadow-xs">
-        <div className="bg-[#193A5A]/5 border border-[#004B8D]/20 rounded-lg p-2.5 flex flex-col">
-          <label className="block text-xs sm:text-sm font-bold text-[#004B8D] mb-1.5 leading-snug">
+      <div className="bg-white border border-gray-200 rounded-xl p-2 sm:p-2.5 shadow-xs flex-shrink-0">
+        <div className="bg-[#193A5A]/5 border border-[#004B8D]/20 rounded-lg p-2 sm:p-2.5 flex flex-col">
+          <label className="block text-xs sm:text-sm font-bold text-[#004B8D] mb-1 sm:mb-1.5 leading-tight">
             Do you feel this represents your view on neighbourhood parking?
           </label>
           
-          <div className="flex items-center justify-between gap-1.5 mb-1">
+          <div className="flex items-center justify-between gap-1 sm:gap-1.5 mb-1">
             {[1, 2, 3, 4, 5].map((val) => {
               const isSelected = rating === val;
               return (
@@ -133,28 +175,29 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
                     triggerFeedback('choice');
                     setRating(val);
                   }}
-                  className={`flex-1 py-1.5 rounded text-[0.6875rem] font-bold transition-all cursor-pointer border active:scale-90 ${
+                  className={`flex-1 min-h-[40px] sm:min-h-[44px] min-w-[36px] sm:min-w-[44px] py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-bold transition-all cursor-pointer border flex items-center justify-center active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#004B8D] ${
                     isSelected
-                      ? 'bg-[#004B8D] text-white border-[#004B8D] shadow-xs'
-                      : 'bg-white text-gray-700 hover:bg-blue-50 hover:border-blue-300 border-gray-300'
+                      ? 'bg-[#004B8D] text-white border-[#004B8D] shadow-xs ring-1 ring-[#004B8D]'
+                      : 'bg-white text-gray-800 hover:bg-blue-50 hover:border-blue-300 border-gray-300'
                   }`}
                   title={`Rating: ${val}`}
+                  aria-label={`Rate ${val} out of 5`}
                 >
                   {val}
                 </button>
               );
             })}
           </div>
-          <div className="flex justify-between text-[0.5rem] sm:text-[0.5625rem] text-gray-500 font-medium px-0.5 mb-2">
+          <div className="flex justify-between text-[0.625rem] sm:text-xs text-gray-600 font-semibold px-0.5 mb-1.5">
             <span>1 - Strongly Disagree</span>
             <span>5 - Strongly Agree</span>
           </div>
           
-          <div className="flex items-center justify-between text-[0.5625rem] sm:text-xs mb-1">
-            <label htmlFor="why-feedback" className="font-semibold text-gray-700">
-              Why or why not?
+          <div className="flex items-center justify-between text-xs mb-1">
+            <label htmlFor="why-feedback" className="font-bold text-gray-800 text-[0.6875rem] sm:text-xs">
+              Why or why not? (Optional)
             </label>
-            <span className={`text-[0.5rem] font-medium ${500 - feedback.length < 50 ? 'text-amber-600 font-bold' : 'text-gray-400'}`}>
+            <span className={`text-[0.625rem] sm:text-xs font-semibold ${500 - feedback.length < 50 ? 'text-amber-700 font-bold' : 'text-gray-500'}`}>
               {500 - feedback.length} left
             </span>
           </div>
@@ -164,79 +207,51 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
             onChange={(e) => setFeedback(e.target.value.slice(0, 500))}
             maxLength={500}
             rows={1}
-            placeholder="Share your thoughts..."
-            className="w-full text-xs sm:text-sm text-gray-800 p-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[#0081BC] focus:border-[#0081BC] resize-none bg-white leading-tight placeholder:text-gray-400 min-h-[32px]"
+            placeholder="Share your thoughts with City of Edmonton planners..."
+            className="w-full text-xs text-gray-800 p-1.5 sm:p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0081BC] focus:border-[#0081BC] resize-none bg-white leading-normal placeholder:text-gray-400 min-h-[36px] sm:min-h-[44px]"
           />
-          
-          <div className="mt-2 flex items-center justify-between">
-            {submitted ? (
-              <span className="text-[0.625rem] font-semibold text-[#007a36] flex items-center gap-1">
-                <CheckCircle className="w-3.5 h-3.5 text-[#009A44]" />
-                Response submitted.
-              </span>
-            ) : (
-              <span className="text-[0.5625rem] text-gray-500 italic">
-                {rating ? `Rating: ${rating}/5` : 'Optional feedback'}
-              </span>
-            )}
-            <button
-              type="button"
-              id="submit-feedback"
-              onClick={() => {
-                triggerFeedback('submit');
-                setSubmitted(true);
-              }}
-              disabled={submitted}
-              className={`px-4 py-1.5 text-xs sm:text-sm font-bold rounded transition-colors shadow-2xs flex items-center justify-center gap-1 cursor-pointer active:scale-95 min-h-[36px] min-w-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#004B8D] ${
-                submitted
-                  ? 'bg-emerald-600 text-white cursor-default'
-                  : 'bg-[#004B8D] hover:bg-[#003866] text-white cursor-pointer'
-              }`}
-            >
-              {submitted ? 'Submitted ✓' : 'Submit'}
-            </button>
-          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5 sm:gap-2 items-stretch">
-        
-        {/* Left Column: You Believe */}
-        <div className="flex flex-col gap-3">
-          <div className="bg-white border border-gray-200 rounded-xl p-2 sm:p-2.5 shadow-xs flex flex-col h-full">
-            <h4 className="text-[0.625rem] sm:text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5 sm:mb-2">
-              You Believe
-            </h4>
-            <ul className="space-y-2 text-[0.6875rem] sm:text-xs text-gray-800 w-full px-1">
-              {persona.keyPriorities.map((priority, idx) => (
-                <li key={idx} className="flex items-start gap-2.5 leading-tight">
-                  <CheckCircle className="w-4 h-4 text-[#009A44] flex-shrink-0 mt-0.5" />
-                  <span>{priority}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
+      {/* Navigation Footer for Step 2 */}
+      <div className="pt-1.5 border-t border-gray-200 flex items-center justify-between gap-2.5 mt-auto flex-shrink-0">
+        <button
+          type="button"
+          onClick={() => {
+            triggerFeedback('button');
+            setStep(1);
+          }}
+          className="px-3 sm:px-4 py-1.5 sm:py-2 border border-gray-300 bg-white hover:bg-gray-100 text-gray-700 rounded-lg text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition-colors cursor-pointer min-h-[42px] sm:min-h-[44px] active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#004B8D]"
+        >
+          <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 rotate-180" />
+          Back to Compass
+        </button>
 
-        {/* Right Column: Postscript */}
-        <div className="flex flex-col gap-3">
-          <div className="bg-white border border-gray-200 rounded-xl p-2 sm:p-2.5 shadow-xs flex flex-col h-full">
-            <div className="flex items-start gap-2.5 mb-2">
-              <div className="w-6 h-6 rounded-md bg-[#0081BC]/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <MapPin className="w-3.5 h-3.5 text-[#0081BC]" />
-              </div>
-              <div className="leading-snug min-w-0">
-                <h3 className="text-[0.625rem] sm:text-[0.6875rem] font-bold uppercase tracking-wider text-[#004B8D] mb-1">
-                  Did you know? — Edmonton Alignment
-                </h3>
-              </div>
-            </div>
-            <p className="text-[0.6875rem] sm:text-xs text-gray-600 leading-relaxed bg-gray-50 p-2 rounded-lg border border-gray-100 flex-grow">
-              {persona.edmontonPolicyFit}
-            </p>
-          </div>
+        <div className="flex items-center gap-2">
+          {submitted ? (
+            <span className="text-xs font-bold text-[#007a36] flex items-center gap-1">
+              <CheckCircle className="w-3.5 h-3.5 text-[#009A44]" />
+              Feedback Saved
+            </span>
+          ) : rating ? (
+            <span className="text-[0.6875rem] sm:text-xs text-gray-500 hidden xs:inline">
+              Rating: {rating}/5
+            </span>
+          ) : null}
+
+          <button
+            type="button"
+            id="submit-feedback"
+            onClick={() => {
+              triggerFeedback('submit');
+              setSubmitted(true);
+            }}
+            className="px-4 sm:px-5 py-1.5 sm:py-2 bg-[#004B8D] hover:bg-[#003866] text-white rounded-lg text-xs sm:text-sm font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer min-h-[42px] sm:min-h-[44px] active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-[#004B8D]"
+          >
+            <span>{submitted ? 'View Summary' : 'Finish & Share'}</span>
+            <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+          </button>
         </div>
-        
       </div>
     </div>
   );

@@ -1,6 +1,14 @@
+declare global { 
+  interface Window { 
+    __riotAudioPlayed?: boolean; 
+    __riotAudioPending?: boolean;
+    __riotAudio?: HTMLAudioElement;
+  } 
+}
+
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { SimulationConfig } from '../types';
-import { Volume2, VolumeX, Sliders, RefreshCw, AlertTriangle, ShieldCheck, Flame } from 'lucide-react';
+import { Volume2, VolumeX, Sliders, RefreshCw, AlertTriangle, ShieldCheck, Flame, RotateCcw } from 'lucide-react';
 import { feedback, triggerFeedback } from '../utils/feedback';
 
 interface NeighborhoodSimulationProps {
@@ -30,6 +38,28 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
   const [curbsidePct, setCurbsidePct] = useState<number>(0);
   const [isRiotActive, setIsRiotActive] = useState<boolean>(false);
   const [zoomScale, setZoomScale] = useState<number>(1.33);
+  const [visualAudioAlert, setVisualAudioAlert] = useState<{ text: string; icon: 'horn' | 'siren' | 'alarm' } | null>(null);
+  const audioAlertTimerRef = useRef<number | null>(null);
+
+  const triggerVisualAudioAlert = useCallback((text: string, icon: 'horn' | 'siren' | 'alarm' = 'horn') => {
+    setVisualAudioAlert({ text, icon });
+    if (audioAlertTimerRef.current) window.clearTimeout(audioAlertTimerRef.current);
+    audioAlertTimerRef.current = window.setTimeout(() => {
+      setVisualAudioAlert(null);
+    }, 2200);
+  }, []);
+
+  // Escape key listener for Manual Sliders Drawer
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && showControls) {
+        setShowControls(false);
+        document.getElementById('manual-controls-toggle')?.focus();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showControls]);
 
   const touchStartDistRef = useRef<number | null>(null);
   const touchStartScaleRef = useRef<number>(1.33);
@@ -68,6 +98,16 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
   }, []);
 
   const playHonk = useCallback((type: string) => {
+    const vehicleNames: Record<string, string> = {
+      boxTruck: 'Delivery Truck Horn',
+      pickup: 'Pickup Truck Horn',
+      police: 'Police Siren',
+      firetruck: 'Fire Engine Siren',
+      suv: 'SUV Horn',
+      sedan: 'Car Horn'
+    };
+    triggerVisualAudioAlert(vehicleNames[type] || 'Vehicle Horn', type === 'police' || type === 'firetruck' ? 'siren' : 'horn');
+
     if (!soundEnabledRef.current) return;
     const ctx = getAudioContext();
     if (!ctx || ctx.state !== 'running') return;
@@ -94,50 +134,15 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
         f2 = 350 + Math.random() * 20;
         duration = 0.4;
       } else if (type === 'police') {
-        const white = '#ffffff';
-        const black = '#111111';
-        drawFlatRect(x - 1, y - 0.5, 17, 8, 'rgba(0,0,0,0.25)');
-        if (!isFlipped) {
-          drawBlock(x + 2, y - 0.5, zOffset, 3, 1, 1.5, tire, tire, tire);
-          drawBlock(x + 11, y - 0.5, zOffset, 3, 1, 1.5, tire, tire, tire);
-          drawBlock(x + 2, y + 6.5, zOffset, 3, 1, 1.5, tire, tire, tire);
-          drawBlock(x + 11, y + 6.5, zOffset, 3, 1, 1.5, tire, tire, tire);
-          drawBlock(x, y, zOffset + 0.8, 15, 7, 2.5, white, '#dddddd', '#cccccc');
-          // black doors
-          drawBlock(x + 3, y - 0.2, zOffset + 1, 7, 7.4, 2.3, black, black, black);
-          drawBlock(x + 3, y + 0.5, zOffset + 3.3, 8, 6, 2.2, white, glass, glass);
-          // lights
-          const lightColor = (Date.now() % 400 > 200) ? '#ff0000' : '#0000ff';
-          drawBlock(x + 6, y + 2.5, zOffset + 5.5, 2, 2, 0.8, lightColor, lightColor, lightColor);
-        } else {
-          drawBlock(x + 3, y + 0.5, zOffset, 8, 6, 2.2, white, '#111', '#111');
-          drawBlock(x, y, zOffset + 2.2, 15, 7, 2.5, white, '#dddddd', '#cccccc');
-          drawBlock(x + 3, y - 0.2, zOffset + 2.4, 7, 7.4, 2.3, black, black, black);
-          drawBlock(x + 2, y - 1, zOffset + 4.7, 3, 1, 2, tire, tire, tire);
-          drawBlock(x + 11, y - 1, zOffset + 4.7, 3, 1, 2, tire, tire, tire);
-        }
+        f1 = 650 + Math.random() * 30;
+        f2 = 780 + Math.random() * 30;
+        duration = 0.35;
+        wave = 'sawtooth';
       } else if (type === 'firetruck') {
-        const red = '#cc0000';
-        const redDark = '#990000';
-        const chrome = '#eeeeee';
-        drawFlatRect(x - 1, y - 0.5, 26, 10, 'rgba(0,0,0,0.3)');
-        if (!isFlipped) {
-          drawBlock(x + 2, y - 0.5, zOffset, 4, 1.5, 2.5, tire, tire, tire);
-          drawBlock(x + 16, y - 0.5, zOffset, 4, 1.5, 2.5, tire, tire, tire);
-          drawBlock(x + 2, y + 8, zOffset, 4, 1.5, 2.5, tire, tire, tire);
-          drawBlock(x + 16, y + 8, zOffset, 4, 1.5, 2.5, tire, tire, tire);
-          drawBlock(x, y, zOffset + 1.2, 24, 9, 7.5, red, redDark, redDark);
-          drawBlock(x + 18, y + 0.5, zOffset + 4.2, 6, 8, 4.8, red, glass, glass); // cab
-          drawBlock(x + 24, y + 1.5, zOffset + 2, 0.5, 6, 2, chrome, chrome, chrome); // grill
-          
-          // flashing lights
-          const lightColor = (Date.now() % 300 > 150) ? '#ff0000' : '#ffffff';
-          drawBlock(x + 19, y + 1, zOffset + 9, 3, 7, 1.0, lightColor, lightColor, lightColor);
-        } else {
-          drawBlock(x, y, zOffset + 2, 24, 9, 7.5, red, redDark, redDark);
-          drawBlock(x + 2, y - 1, zOffset + 9.7, 4, 1.5, 2.5, tire, tire, tire);
-          drawBlock(x + 16, y - 1, zOffset + 9.7, 4, 1.5, 2.5, tire, tire, tire);
-        }
+        f1 = 160 + Math.random() * 20;
+        f2 = 210 + Math.random() * 20;
+        duration = 0.55;
+        wave = 'square';
       } else if (type === 'suv') {
         f1 = 370 + Math.random() * 25;
         f2 = 450 + Math.random() * 25;
@@ -167,6 +172,8 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
   }, [getAudioContext]);
 
   const playCriticalAlarm = useCallback(() => {
+    triggerVisualAudioAlert('Severe Curbside Congestion Alarm', 'alarm');
+
     if (!soundEnabledRef.current) return;
     const ctx = getAudioContext();
     if (!ctx || ctx.state !== 'running') return;
@@ -1185,6 +1192,8 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
         targetDoorY: number;
         hasPackage: boolean;
         active: boolean;
+        path?: {x: number; y: number}[];
+        pathIdx?: number;
       };
     }
 
@@ -1391,17 +1400,39 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
           van.driver.x = van.x + 10;
           van.driver.y = van.y - 2;
           van.driver.hasPackage = true;
+          
+          const targetHouse = van.targetHouse;
+          const houseBaseX = 10 + targetHouse * 55;
+          let apronX = houseBaseX + 39.75;
+          if (targetHouse === 5) {
+             apronX = 10 + 4 * 55 + 39.75; // Use neighbor's driveway for skinny lot
+          }
+          
+          van.driver.path = [
+            { x: van.driver.x, y: van.driver.y },
+            { x: apronX, y: van.driver.y },
+            { x: apronX, y: 74 },
+            { x: van.driver.targetDoorX, y: 74 },
+            { x: van.driver.targetDoorX, y: 35 }
+          ];
+          van.driver.pathIdx = 1;
         }
       } else if (van.state === 'STOPPED') {
         van.speed = 0;
         const d = van.driver;
-        const dx = d.targetDoorX - d.x;
-        const dy = d.targetDoorY - d.y;
-        const dist = Math.hypot(dx, dy);
-
-        if (dist > 1.5) {
-          d.x += (dx / dist) * 0.45;
-          d.y += (dy / dist) * 0.45;
+        if (d.path && d.pathIdx !== undefined && d.pathIdx < d.path.length) {
+          const target = d.path[d.pathIdx];
+          const dx = target.x - d.x;
+          const dy = target.y - d.y;
+          const dist = Math.hypot(dx, dy);
+          if (dist > 1.5) {
+            d.x += (dx / dist) * 0.45;
+            d.y += (dy / dist) * 0.45;
+          } else {
+            d.x = target.x;
+            d.y = target.y;
+            d.pathIdx++;
+          }
         } else {
           van.state = 'AT_DOOR';
           van.stopTimer = 0;
@@ -1412,19 +1443,41 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
         if (van.stopTimer > 65) {
           van.driver.hasPackage = false;
           van.state = 'RETURNING';
+
+          const targetHouse = van.targetHouse;
+          const houseBaseX = 10 + targetHouse * 55;
+          let apronX = houseBaseX + 39.75;
+          if (targetHouse === 5) {
+             apronX = 10 + 4 * 55 + 39.75;
+          }
+          const vanDoorX = van.x + 10;
+          const vanDoorY = van.y - 2;
+          
+          van.driver.path = [
+            { x: van.driver.targetDoorX, y: 35 },
+            { x: van.driver.targetDoorX, y: 74 },
+            { x: apronX, y: 74 },
+            { x: apronX, y: vanDoorY },
+            { x: vanDoorX, y: vanDoorY }
+          ];
+          van.driver.pathIdx = 1;
         }
       } else if (van.state === 'RETURNING') {
         van.speed = 0;
         const d = van.driver;
-        const targetX = van.x + 10;
-        const targetY = van.y - 2;
-        const dx = targetX - d.x;
-        const dy = targetY - d.y;
-        const dist = Math.hypot(dx, dy);
-
-        if (dist > 1.5) {
-          d.x += (dx / dist) * 0.45;
-          d.y += (dy / dist) * 0.45;
+        if (d.path && d.pathIdx !== undefined && d.pathIdx < d.path.length) {
+          const target = d.path[d.pathIdx];
+          const dx = target.x - d.x;
+          const dy = target.y - d.y;
+          const dist = Math.hypot(dx, dy);
+          if (dist > 1.5) {
+            d.x += (dx / dist) * 0.45;
+            d.y += (dy / dist) * 0.45;
+          } else {
+            d.x = target.x;
+            d.y = target.y;
+            d.pathIdx++;
+          }
         } else {
           d.active = false;
           van.state = 'LEAVING';
@@ -1574,13 +1627,45 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
       const hasBurningCars = flippedCars.size > 0 || activeVehicles.some(v => v.isBurning) || isRioting;
       
       const numBurning = flippedCars.size + activeVehicles.filter(v => v.isBurning).length;
+      // Flag to track if we need to trigger audio
+      let policeSpawnedThisFrame = false;
       while (emergencyVehicles.length < numBurning * 2) {
         const idx = Math.floor(emergencyVehicles.length / 2);
         const isPolice = emergencyVehicles.length % 2 === 0;
         if (isPolice) {
+          if (emergencyVehicles.length === 0) policeSpawnedThisFrame = true;
           emergencyVehicles.push({ type: 'police', x: -800 - idx * 450, y: 117, baseY: 117, targetY: 117, w: 15, d: 7, baseSpeed: 2.2, speed: 2.2, color: '#ffffff', stuckTimer: 0, honkCooldown: 0, honkBubbleTimer: 0, isEmergency: true });
         } else {
           emergencyVehicles.push({ type: 'firetruck', x: -900 - idx * 450, y: 117, baseY: 117, targetY: 117, w: 28, d: 9, baseSpeed: 2.0, speed: 2.0, color: '#cc0000', stuckTimer: 0, honkCooldown: 0, honkBubbleTimer: 0, isEmergency: true });
+        }
+      }
+      
+      // Trigger audio precisely when the police asset is injected into the rendering pipeline (asset mounting event)
+      if (policeSpawnedThisFrame && soundEnabledRef.current && !window.__riotAudioPlayed) {
+         window.__riotAudioPlayed = true;
+         
+         if (!window.__riotAudio) {
+           window.__riotAudio = new Audio('/audio/riot_news_report.mp3');
+           window.__riotAudio.volume = 0.8;
+           window.__riotAudio.loop = true;
+         }
+         
+         window.__riotAudio.currentTime = 0;
+         const playPromise = window.__riotAudio.play();
+         if (playPromise !== undefined) {
+           playPromise.catch(e => {
+             console.warn('Riot audio playback blocked by browser autoplay policy. Pending user interaction.', e);
+             window.__riotAudioPending = true;
+           });
+         }
+      }
+      
+      // Stop and reset audio when riot ends completely
+      if (numBurning === 0) {
+        window.__riotAudioPlayed = false;
+        if (window.__riotAudio) {
+          window.__riotAudio.pause();
+          window.__riotAudio.currentTime = 0;
         }
       }
 
@@ -2018,6 +2103,7 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
               flippedCars.add(i);
               isRioting = true;
               setIsRiotActive(true);
+              
               if (soundEnabledRef.current) playCriticalAlarm();
             }
             return;
@@ -2094,6 +2180,11 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
           aria-label="Live 2.5D Isometric Neighborhood Simulation showing residential parking, driveways, and road traffic based on the active policy settings."
           onClick={(e) => {
             getAudioContext();
+            // Resume riot audio if it was blocked by autoplay policies
+            if (window.__riotAudioPending && window.__riotAudio) {
+              window.__riotAudio.play().catch(err => console.warn('Riot audio still blocked', err));
+              window.__riotAudioPending = false;
+            }
             const canvas = canvasRef.current;
             if (!canvas) return;
             const rect = canvas.getBoundingClientRect();
@@ -2148,6 +2239,20 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
           </div>
         )}
 
+        {/* Visual Audio Event Alert (accessible indicator for non-auditory and muted users) */}
+        {visualAudioAlert && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="absolute top-2 left-1/2 -translate-x-1/2 z-35 bg-[#11283f]/95 border-2 border-[#FFC72C] text-white px-3.5 py-1.5 rounded-full shadow-2xl flex items-center gap-2 text-xs font-bold pointer-events-none backdrop-blur-md"
+          >
+            <span className="text-sm">
+              {visualAudioAlert.icon === 'siren' ? '🚨' : visualAudioAlert.icon === 'alarm' ? '⚠️' : '📢'}
+            </span>
+            <span className="tracking-wide text-[#FFC72C]">{visualAudioAlert.text}</span>
+          </div>
+        )}
+
         {/* Top Right HUD: Audio + Gauge + Manual Controls Toggle */}
         <div className="absolute top-1.5 right-1.5 sm:top-3 sm:right-3 z-20 flex flex-col items-stretch gap-1 sm:gap-2">
           <div className="flex items-center gap-0.5 sm:gap-1 bg-[#193A5A]/90 backdrop-blur-md border border-[#0081BC]/40 p-0.5 sm:p-1.5 rounded-md sm:rounded-lg shadow-lg">
@@ -2160,13 +2265,13 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
                 feedback.toggleSound();
               }}
               title={soundEnabled ? 'Mute Simulation & City Traffic Noise' : 'Enable City Traffic Ambience (5%) & SFX (15%)'}
-              className={`p-1 sm:p-1.5 rounded-md transition-colors cursor-pointer active:scale-95 ${
+              className={`min-h-[44px] min-w-[44px] p-2 flex items-center justify-center rounded-md transition-colors cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFC72C] ${
                 soundEnabled
                   ? 'bg-[#0081BC] text-white hover:bg-[#005087]'
                   : 'bg-black/40 text-gray-400 hover:text-white'
               }`}
             >
-              {soundEnabled ? <Volume2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <VolumeX className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+              {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
             </button>
 
             {/* Manual Controls Toggle */}
@@ -2180,13 +2285,13 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
               title="Toggle Manual Simulation Sliders"
               aria-expanded={showControls}
               aria-controls="manual-sliders-drawer"
-              className={`p-1 sm:p-1.5 rounded-md transition-colors flex items-center gap-1 text-[11px] sm:text-xs font-semibold cursor-pointer active:scale-95 min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFC72C] ${
+              className={`min-h-[44px] min-w-[44px] px-2.5 sm:px-3 rounded-md transition-colors flex items-center justify-center gap-1.5 text-xs font-semibold cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFC72C] ${
                 showControls
                   ? 'bg-[#0081BC] text-white'
                   : 'bg-black/40 text-gray-300 hover:text-white'
               }`}
             >
-              <Sliders className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <Sliders className="w-4 h-4" />
               <span className="hidden sm:inline">Controls</span>
             </button>
 
@@ -2200,27 +2305,27 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
               }}
               title="Randomize Parking Distribution"
               aria-label="Randomize Parking Distribution"
-              className="p-1 sm:p-1.5 rounded-md bg-black/40 text-gray-300 hover:text-white transition-colors cursor-pointer active:scale-95 min-h-[44px] min-w-[44px] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFC72C]"
+              className="min-h-[44px] min-w-[44px] p-2 rounded-md bg-black/40 text-gray-300 hover:text-white transition-colors cursor-pointer active:scale-95 flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFC72C]"
             >
-              <RefreshCw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <RefreshCw className="w-4 h-4" />
             </button>
           </div>
 
-          {/* Compact Curbside Dial Gauge - 33% reduced on mobile */}
+          {/* Compact Curbside Dial Gauge - with clear legible typography */}
           <div
             id="hud-gauge-widget"
-            className={`bg-[#193A5A]/90 backdrop-blur-md border border-[#0081BC]/40 p-0.5 sm:p-2 rounded-md sm:rounded-lg shadow-lg flex flex-col items-center transition-all ${
+            className={`bg-[#193A5A]/90 backdrop-blur-md border border-[#0081BC]/40 p-1 sm:p-2 rounded-md sm:rounded-lg shadow-lg flex flex-col items-center transition-all landscape:max-sm:scale-50 landscape:max-sm:origin-top-right landscape:max-sm:-mb-[35px] ${
               curbsidePct >= 150 ? 'animate-bounce border-[#E8552D]' : ''
             }`}
           >
-            <div className="flex items-center justify-between w-full text-[7px] sm:text-[10px] font-bold text-gray-300 mb-0.5 sm:mb-1 gap-1">
+            <div className="flex items-center justify-between w-full text-[10px] sm:text-xs font-bold text-gray-200 mb-0.5 sm:mb-1 gap-1">
               <span className="hidden xs:inline">Curbside</span>
-              <span className={`px-0.5 sm:px-1 py-0.2 rounded border text-[7px] sm:text-[9px] font-bold ${getGaugeStatusColor()}`}>
+              <span className={`px-1.5 py-0.5 rounded border text-[10px] sm:text-xs font-bold ${getGaugeStatusColor()}`}>
                 {curbsidePct}%
               </span>
             </div>
             <canvas ref={gaugeCanvasRef} width={120} height={60} className="w-full h-auto block" />
-            <span className="text-[7px] sm:text-[10px] font-semibold text-gray-200 mt-0.5 whitespace-nowrap">
+            <span className="text-[10px] sm:text-xs font-semibold text-gray-200 mt-0.5 whitespace-nowrap">
               {curbsideDemandCount}/{TOTAL_LEGAL_CURBSIDE_STALLS} Cars
             </span>
           </div>
@@ -2229,11 +2334,14 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
           {showControls && (
             <div
               id="manual-sliders-drawer"
-              className="bg-[#11283f]/95 backdrop-blur-md border border-[#0081BC]/50 p-2.5 sm:p-3 rounded-xl shadow-2xl w-[calc(100vw-20px)] max-w-[270px] sm:w-72 max-h-[80vh] md:max-h-[85%] overflow-y-auto flex flex-col gap-2 text-[11px] sm:text-xs text-white z-40"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="manual-sliders-title"
+              className="bg-[#11283f]/95 backdrop-blur-md border border-[#0081BC]/50 p-3 sm:p-3.5 rounded-xl shadow-2xl w-[calc(100vw-20px)] max-w-[280px] sm:w-72 max-h-[80vh] md:max-h-[85%] overflow-y-auto flex flex-col gap-2 text-xs text-white z-40"
             >
-              <div className="flex items-center justify-between pb-1 border-b border-white/10">
-                <span className="font-bold text-[#FFC72C] flex items-center gap-1 text-xs">
-                  <Sliders className="w-3.5 h-3.5" /> Manual Sliders
+              <div className="flex items-center justify-between pb-1.5 border-b border-white/10">
+                <span id="manual-sliders-title" className="font-bold text-[#FFC72C] flex items-center gap-1.5 text-xs sm:text-sm">
+                  <Sliders className="w-4 h-4" /> Manual Sliders
                 </span>
                 <button
                   type="button"
@@ -2242,7 +2350,7 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
                     triggerFeedback('button');
                     setShowControls(false);
                   }}
-                  className="text-gray-400 hover:text-white flex items-center justify-center min-w-[44px] min-h-[44px] font-bold text-sm cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFC72C] rounded"
+                  className="text-gray-400 hover:text-white flex items-center justify-center min-w-[44px] min-h-[44px] font-bold text-base cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFC72C] rounded"
                 >
                   ✕
                 </button>
@@ -2384,6 +2492,15 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
             aria-label="Zoom In"
           >
             +
+          </button>
+          <button 
+            type="button"
+            onClick={() => setZoomScale(1.33)}
+            className="w-11 h-11 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/20 active:bg-white/30 rounded font-bold text-sm cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white transition-colors"
+            title="Reset Camera View (Default 1.33x)"
+            aria-label="Reset Camera View"
+          >
+            <RotateCcw className="w-4 h-4" />
           </button>
           <button 
             type="button"

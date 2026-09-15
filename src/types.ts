@@ -11,7 +11,10 @@ export interface SurveyQuestion {
   id: string;
   number: number;
   text: string;
-  category: 'residential' | 'visitors' | 'finance' | 'commercial' | 'pricing' | 'enforcement' | 'revenue';
+  category: 'residential' | 'visitors' | 'finance' | 'commercial' | 'pricing' | 'enforcement' | 'revenue' | 'demographics' | 'location';
+  type?: 'choice' | 'text';
+  placeholder?: string;
+  helperText?: string;
   options: SurveyOption[];
 }
 

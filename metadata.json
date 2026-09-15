@@ -1,6 +1,6 @@
 {
-  "name": "Remix Remix Remix CodeLayout Summarizer v.3",
-  "description": "Analyze HTML source code to generate clear summaries of your website\u0027s structural layout and core functional elements.",
+  "name": "Curbside Compass",
+  "description": "Try to solve Edmonton's Residential Parking Puzzle as an Urban Planner ",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

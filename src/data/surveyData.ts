@@ -254,8 +254,39 @@ export const SURVEY_QUESTIONS: SurveyQuestion[] = [
         }
       }
     ]
+  },
+  {
+    id: 'q9',
+    number: 9,
+    category: 'location',
+    type: 'text',
+    text: 'Please enter your full postal code.',
+    placeholder: 'e.g. T5J 2R7',
+    helperText: 'Please enter a 6 or 7 character alphanumeric postal code (e.g., T5J 2R7 or T5J2R7).',
+    options: []
   }
 ];
+
+export function validatePostalCode(val: string): { isValid: boolean; message?: string } {
+  if (!val || !val.trim()) {
+    return { isValid: false, message: 'Please enter your full postal code to continue.' };
+  }
+  const trimmed = val.trim();
+  const alphaNum = trimmed.replace(/[\s-]/g, '');
+
+  if (!/^[a-zA-Z0-9]+$/.test(alphaNum)) {
+    return { isValid: false, message: 'Postal code must contain only letters and numbers.' };
+  }
+
+  if (alphaNum.length < 6 || alphaNum.length > 7) {
+    return {
+      isValid: false,
+      message: `Postal code must be 6 or 7 alphanumeric characters (currently ${alphaNum.length}).`
+    };
+  }
+
+  return { isValid: true };
+}
 
 export const PERSONA_PROFILES: Record<string, PersonaResult> = {
   // Row 1: Strict / Most Rules (Y < -9)

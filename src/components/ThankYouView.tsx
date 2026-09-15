@@ -22,6 +22,7 @@ const curbsideSocialImg = '/Curbside_Compass_fb.png';
 interface ThankYouViewProps {
   persona: PersonaResult;
   config: SimulationConfig;
+  postalCode?: string;
   onViewResults: () => void;
   onRetake?: () => void;
 }
@@ -29,6 +30,7 @@ interface ThankYouViewProps {
 export const ThankYouView: React.FC<ThankYouViewProps> = ({
   persona,
   config,
+  postalCode,
   onViewResults,
   onRetake
 }) => {
@@ -77,11 +79,18 @@ export const ThankYouView: React.FC<ThankYouViewProps> = ({
     <div className="w-full h-full flex flex-col justify-between p-3 sm:p-5 bg-white text-gray-800 overflow-y-auto">
       {/* Header bar */}
       <div className="flex items-center justify-between pb-2 border-b border-gray-100 flex-shrink-0">
-        <div className="flex items-center gap-1.5">
-          <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700">
-            <CheckCircle className="w-4 h-4 text-[#009A44]" />
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700">
+              <CheckCircle className="w-4 h-4 text-[#009A44]" />
+            </div>
+            <span className="text-xs font-bold text-gray-700">Feedback Completed</span>
           </div>
-          <span className="text-xs font-bold text-gray-700">Feedback Completed</span>
+          {postalCode && (
+            <span className="text-[0.6875rem] font-bold font-mono text-[#004B8D] bg-blue-50 border border-blue-200 px-2 py-0.5 rounded uppercase">
+              Postal Code: {postalCode}
+            </span>
+          )}
         </div>
 
         {onRetake && (
@@ -91,9 +100,9 @@ export const ThankYouView: React.FC<ThankYouViewProps> = ({
               triggerFeedback('button');
               onRetake();
             }}
-            className="text-[0.6875rem] font-bold flex items-center gap-1 text-gray-600 hover:text-[#004B8D] bg-gray-100 hover:bg-gray-200 px-2.5 py-1 rounded transition-all cursor-pointer active:scale-95"
+            className="text-xs font-bold flex items-center justify-center gap-1.5 text-gray-700 hover:text-[#004B8D] bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded-lg transition-all cursor-pointer active:scale-95 min-h-[44px] min-w-[44px]"
           >
-            <RotateCcw className="w-3 h-3" />
+            <RotateCcw className="w-3.5 h-3.5" />
             <span>Start Over</span>
           </button>
         )}
@@ -236,10 +245,10 @@ export const ThankYouView: React.FC<ThankYouViewProps> = ({
                 handlePlatformClick('Facebook');
               }}
               id="share-facebook-button"
-              className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl bg-[#1877F2] hover:bg-[#1565cf] text-white text-[0.6875rem] font-bold shadow-xs transition-transform active:scale-95 cursor-pointer no-underline"
+              className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-[#1877F2] hover:bg-[#1565cf] text-white text-xs font-bold shadow-xs transition-transform active:scale-95 cursor-pointer no-underline min-h-[44px] min-w-[44px]"
               title="Share on Facebook"
             >
-              <Facebook className="w-3.5 h-3.5 fill-current" />
+              <Facebook className="w-4 h-4 fill-current" />
               <span>Facebook</span>
             </a>
 
@@ -253,10 +262,10 @@ export const ThankYouView: React.FC<ThankYouViewProps> = ({
                 handlePlatformClick('X');
               }}
               id="share-x-button"
-              className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl bg-black hover:bg-neutral-800 text-white text-[0.6875rem] font-bold shadow-xs transition-transform active:scale-95 cursor-pointer no-underline"
+              className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-black hover:bg-neutral-800 text-white text-xs font-bold shadow-xs transition-transform active:scale-95 cursor-pointer no-underline min-h-[44px] min-w-[44px]"
               title="Share on X"
             >
-              <Twitter className="w-3.5 h-3.5 fill-current" />
+              <Twitter className="w-4 h-4 fill-current" />
               <span>X (Twitter)</span>
             </a>
 
@@ -270,22 +279,22 @@ export const ThankYouView: React.FC<ThankYouViewProps> = ({
                 handlePlatformClick('Instagram');
               }}
               id="share-instagram-button"
-              className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl bg-gradient-to-r from-[#833AB4] via-[#FD1D1D] to-[#FCB045] hover:opacity-95 text-white text-[0.6875rem] font-bold shadow-xs transition-transform active:scale-95 cursor-pointer no-underline"
+              className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-gradient-to-r from-[#833AB4] via-[#FD1D1D] to-[#FCB045] hover:opacity-95 text-white text-xs font-bold shadow-xs transition-transform active:scale-95 cursor-pointer no-underline min-h-[44px] min-w-[44px]"
               title="Share on Instagram"
             >
-              <Instagram className="w-3.5 h-3.5" />
+              <Instagram className="w-4 h-4" />
               <span>Instagram</span>
             </a>
           </div>
 
           {/* Platform Toast Notice */}
           {platformNotice && (
-            <div className={`mb-2 p-1.5 border rounded-lg text-[0.625rem] leading-snug flex items-start gap-1.5 ${
+            <div className={`mb-2 p-2 border rounded-lg text-xs leading-snug flex items-start gap-2 ${
               platformNotice === 'Instagram' ? 'bg-purple-50 border-purple-200 text-purple-900' :
               platformNotice === 'Facebook' ? 'bg-blue-50 border-blue-200 text-blue-900' :
               'bg-gray-50 border-gray-200 text-gray-900'
             }`}>
-              <Check className={`w-3.5 h-3.5 flex-shrink-0 mt-0.5 ${
+              <Check className={`w-4 h-4 flex-shrink-0 mt-0.5 ${
                 platformNotice === 'Instagram' ? 'text-purple-700' :
                 platformNotice === 'Facebook' ? 'text-blue-700' :
                 'text-gray-700'
@@ -305,7 +314,7 @@ export const ThankYouView: React.FC<ThankYouViewProps> = ({
                 triggerFeedback('button');
                 handleCopyLink();
               }}
-              className={`w-full flex items-center justify-center gap-2 py-2 rounded-xl text-[0.75rem] font-bold transition-all cursor-pointer active:scale-95 ${
+              className={`w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer active:scale-95 min-h-[44px] ${
                 copied
                   ? 'bg-emerald-600 text-white shadow-sm'
                   : 'bg-white border border-gray-300 text-gray-800 hover:bg-gray-50 shadow-xs'
@@ -323,7 +332,7 @@ export const ThankYouView: React.FC<ThankYouViewProps> = ({
                 </>
               )}
             </button>
-            <p className="text-center text-[0.5625rem] text-gray-500 mt-1.5">
+            <p className="text-center text-xs text-gray-500 mt-1.5">
               Copies your Persona result and the survey link to paste anywhere.
             </p>
           </div>
@@ -338,9 +347,9 @@ export const ThankYouView: React.FC<ThankYouViewProps> = ({
             triggerFeedback('button');
             onViewResults();
           }}
-          className="text-xs font-bold text-[#004B8D] hover:text-[#003366] flex items-center gap-1.5 py-1 px-2 rounded-md hover:bg-blue-50 transition-colors cursor-pointer active:scale-95"
+          className="text-xs sm:text-sm font-bold text-[#004B8D] hover:text-[#003366] flex items-center gap-1.5 py-2 px-3 rounded-lg hover:bg-blue-50 transition-colors cursor-pointer active:scale-95 min-h-[44px] min-w-[44px]"
         >
-          <ArrowLeft className="w-3.5 h-3.5" />
+          <ArrowLeft className="w-4 h-4" />
           <span>View Parking Persona</span>
         </button>
 
@@ -351,10 +360,10 @@ export const ThankYouView: React.FC<ThankYouViewProps> = ({
               triggerFeedback('button');
               onRetake();
             }}
-            className="text-xs font-bold text-gray-600 hover:text-gray-900 flex items-center gap-1 py-1 px-2 rounded-md hover:bg-gray-100 transition-colors cursor-pointer active:scale-95"
+            className="text-xs sm:text-sm font-bold text-gray-600 hover:text-gray-900 flex items-center gap-1.5 py-2 px-3 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer active:scale-95 min-h-[44px] min-w-[44px]"
           >
             <span>Retake Assessment</span>
-            <ExternalLink className="w-3 h-3 text-gray-400" />
+            <ExternalLink className="w-3.5 h-3.5 text-gray-400" />
           </button>
         )}
       </div>

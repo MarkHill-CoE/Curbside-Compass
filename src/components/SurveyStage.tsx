@@ -1,6 +1,6 @@
 import React from 'react';
 import { SurveyQuestion } from '../types';
-import { ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle2, MapPin } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { triggerFeedback } from '../utils/feedback';
 
@@ -11,6 +11,7 @@ interface SurveyStageProps {
   onSelectOption: (questionId: string, optionId: string) => void;
   onNavigate: (direction: number) => void;
   showValidationError: boolean;
+  validationErrorMsg?: string | null;
   totalX: number;
   totalY: number;
 }
@@ -22,6 +23,7 @@ export const SurveyStage: React.FC<SurveyStageProps> = ({
   onSelectOption,
   onNavigate,
   showValidationError,
+  validationErrorMsg,
   totalX,
   totalY
 }) => {
@@ -29,20 +31,21 @@ export const SurveyStage: React.FC<SurveyStageProps> = ({
   const isLastQuestion = currentStep === questions.length - 1;
   const progressPct = ((currentStep + 1) / questions.length) * 100;
   const currentAnswer = selectedAnswers[currentQuestion.id];
+  const isTextQuestion = currentQuestion.type === 'text' || currentQuestion.options.length === 0;
 
   // Dynamic grid configuration based on option count
-  // In tablet horizontal (and tablet landscape), question boxes stack vertically in a single column
+  // In tablet vertical (md to lg), we stack vertically to use the wider space for larger text
   const optionCount = currentQuestion.options.length;
-  let gridClasses = 'grid grid-cols-1 gap-1 sm:gap-1.5 w-full';
+  let gridClasses = 'grid grid-cols-1 gap-1.5 sm:gap-2 md:gap-3 lg:gap-2 w-full';
   if (optionCount === 2) {
     gridClasses =
-      'grid grid-cols-1 sm:grid-cols-2 md:landscape:grid-cols-1 [@media(min-width:768px)_and_(orientation:landscape)]:grid-cols-1 xl:grid-cols-2 gap-1 sm:gap-1.5 w-full';
+      'grid grid-cols-1 lg:grid-cols-2 gap-1.5 sm:gap-2 md:gap-3 lg:gap-2 w-full';
   } else if (optionCount === 4) {
     gridClasses =
-      'grid grid-cols-1 sm:grid-cols-2 md:landscape:grid-cols-1 [@media(min-width:768px)_and_(orientation:landscape)]:grid-cols-1 xl:grid-cols-2 gap-1 sm:gap-1.5 w-full';
+      'grid grid-cols-1 lg:grid-cols-2 gap-1.5 sm:gap-2 md:gap-3 lg:gap-2 w-full';
   } else if (optionCount === 3) {
     gridClasses =
-      'grid grid-cols-1 md:landscape:grid-cols-1 [@media(min-width:768px)_and_(orientation:landscape)]:grid-cols-1 2xl:grid-cols-3 gap-1 sm:gap-1.5 w-full';
+      'grid grid-cols-1 xl:grid-cols-3 gap-1.5 sm:gap-2 md:gap-3 lg:gap-2 w-full';
   }
 
   return (
@@ -56,7 +59,13 @@ export const SurveyStage: React.FC<SurveyStageProps> = ({
               Question {currentStep + 1} of {questions.length}
             </span>
             <span className="text-gray-300">•</span>
-            <span className="capitalize text-gray-600 truncate">{currentQuestion.category} Policy</span>
+            <span className="capitalize text-gray-600 truncate">
+              {currentQuestion.category === 'location'
+                ? 'Neighbourhood Location'
+                : currentQuestion.category === 'demographics'
+                ? 'Demographics'
+                : `${currentQuestion.category} Policy`}
+            </span>
           </span>
         </div>
 
@@ -82,69 +91,170 @@ export const SurveyStage: React.FC<SurveyStageProps> = ({
             transition={{ duration: 0.2 }}
             className="flex flex-col w-full"
           >
-            <h3 className="text-sm sm:text-base md:text-lg font-bold text-[#004B8D] mb-1 sm:mb-1.5 leading-snug">
+            <h3 className="text-sm sm:text-base md:text-[16pt] lg:text-lg font-bold text-[#004B8D] mb-1.5 sm:mb-2 md:mb-3 lg:mb-1.5 leading-snug">
               {currentQuestion.text}
             </h3>
 
-            {/* Options List */}
-            <div className={gridClasses} role="radiogroup" aria-label={`Options for ${currentQuestion.text}`}>
-              {currentQuestion.options.map((option) => {
-                const isSelected = currentAnswer === option.id;
-                return (
-                  <button
-                    key={option.id}
-                    type="button"
-                    role="radio"
-                    aria-checked={isSelected}
-                    onClick={() => {
-                      triggerFeedback('choice');
-                      onSelectOption(currentQuestion.id, option.id);
-                    }}
-                    className={`w-full text-left p-1 sm:p-1.5 md:p-2 rounded-lg border-2 transition-all flex items-start gap-1 sm:gap-1.5 cursor-pointer relative min-h-[36px] active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#004B8D] focus-visible:ring-offset-2 ${
-                      isSelected
-                        ? 'border-[#004B8D] bg-[#004B8D]/5 shadow-xs ring-1 ring-[#004B8D]'
-                        : 'border-gray-200 bg-white hover:border-[#004B8D]/40 hover:bg-gray-50'
-                    }`}
-                  >
-                    <div className="pt-0.5 flex-shrink-0">
-                      <div
-                        className={`w-3 h-3 sm:w-3.5 sm:h-3.5 rounded-full border flex items-center justify-center transition-colors ${
-                          isSelected
-                            ? 'border-[#004B8D] bg-[#004B8D]'
-                            : 'border-gray-400 bg-white'
-                        }`}
-                      >
-                        {isSelected && <div className="w-1 h-1 rounded-full bg-white" />}
-                      </div>
-                    </div>
+            {isTextQuestion ? (
+              /* Text Input Mode for Postal Code (Q9) */
+              <div className="w-full flex flex-col gap-2.5 pt-1">
+                <p className="text-xs sm:text-sm md:text-base text-gray-600 leading-relaxed">
+                  {currentQuestion.helperText || 'Please enter your 6 or 7 character alphanumeric postal code (e.g., T5J 2R7 or T5J2R7).'}
+                </p>
 
-                    <div className="flex flex-col flex-grow min-w-0">
-                      <span
-                        className={`text-xs sm:text-sm md:text-base font-semibold leading-tight ${
-                          isSelected ? 'text-[#004B8D]' : 'text-gray-800'
-                        }`}
-                      >
-                        {option.label}
+                <div className="relative max-w-md w-full">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                    <MapPin className="h-5 w-5 text-[#004B8D]" />
+                  </div>
+                  <input
+                    type="text"
+                    id="postal-code-input"
+                    autoFocus
+                    autoComplete="postal-code"
+                    maxLength={8}
+                    placeholder={currentQuestion.placeholder || "e.g. T5J 2R7"}
+                    value={currentAnswer || ''}
+                    onChange={(e) => {
+                      const raw = e.target.value.toUpperCase();
+                      const sanitized = raw.replace(/[^A-Z0-9\s-]/g, '').slice(0, 8);
+                      onSelectOption(currentQuestion.id, sanitized);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        triggerFeedback(isLastQuestion ? 'submit' : 'button');
+                        onNavigate(1);
+                      }
+                    }}
+                    className="w-full pl-11 pr-4 py-2.5 sm:py-3 bg-white border-2 border-gray-300 rounded-lg text-base sm:text-lg md:text-xl font-bold font-mono text-[#004B8D] tracking-widest placeholder:text-gray-400 placeholder:font-sans placeholder:tracking-normal placeholder:font-normal placeholder:text-sm focus:outline-none focus:border-[#004B8D] focus:ring-2 focus:ring-[#004B8D]/20 transition-all shadow-xs"
+                    aria-label="Postal code input"
+                  />
+                </div>
+
+                {/* Real-time validation indicator */}
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  {(() => {
+                    const alphaNumCount = (currentAnswer || '').replace(/[^A-Z0-9]/gi, '').length;
+                    if (alphaNumCount === 0) {
+                      return (
+                        <span className="text-gray-500 font-medium">
+                          Expecting 6 or 7 alphanumeric characters (e.g., T5J 2R7 or T5J2R7)
+                        </span>
+                      );
+                    }
+                    if (alphaNumCount === 6 || alphaNumCount === 7) {
+                      return (
+                        <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          Valid postal code ({alphaNumCount} alphanumeric characters)
+                        </span>
+                      );
+                    }
+                    return (
+                      <span className="inline-flex items-center gap-1 font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded">
+                        {alphaNumCount} alphanumeric character{alphaNumCount === 1 ? '' : 's'} entered (need 6 or 7)
                       </span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+                    );
+                  })()}
+                </div>
+
+                <div className="bg-[#193A5A]/5 border border-[#004B8D]/15 rounded-lg p-2.5 sm:p-3 text-xs text-gray-700 leading-relaxed max-w-lg mt-1">
+                  <span className="font-bold text-[#004B8D] block mb-0.5">Edmonton Tip:</span>
+                  Edmonton postal codes begin with <span className="font-mono font-semibold">T5</span> or <span className="font-mono font-semibold">T6</span> (for example, <span className="font-mono font-semibold">T5J 2R7</span> for Downtown, <span className="font-mono font-semibold">T6G 2R3</span> for Garneau/University, or <span className="font-mono font-semibold">T5K 1X4</span> for Oliver/Wîhkwêntôwin).
+                </div>
+              </div>
+            ) : (
+              /* Options List with WAI-ARIA arrow key navigation */
+              <div
+                className={gridClasses}
+                role="radiogroup"
+                aria-label={`Options for ${currentQuestion.text}`}
+                onKeyDown={(e) => {
+                  if (['ArrowDown', 'ArrowRight'].includes(e.key)) {
+                    e.preventDefault();
+                    const options = currentQuestion.options || [];
+                    const currentIndex = options.findIndex((o) => o.id === currentAnswer);
+                    const nextIndex = currentIndex < options.length - 1 ? currentIndex + 1 : 0;
+                    const nextOption = options[nextIndex];
+                    if (nextOption) {
+                      triggerFeedback('choice');
+                      onSelectOption(currentQuestion.id, nextOption.id);
+                      document.getElementById(`option-btn-${nextOption.id}`)?.focus();
+                    }
+                  } else if (['ArrowUp', 'ArrowLeft'].includes(e.key)) {
+                    e.preventDefault();
+                    const options = currentQuestion.options || [];
+                    const currentIndex = options.findIndex((o) => o.id === currentAnswer);
+                    const prevIndex = currentIndex > 0 ? currentIndex - 1 : options.length - 1;
+                    const prevOption = options[prevIndex];
+                    if (prevOption) {
+                      triggerFeedback('choice');
+                      onSelectOption(currentQuestion.id, prevOption.id);
+                      document.getElementById(`option-btn-${prevOption.id}`)?.focus();
+                    }
+                  }
+                }}
+              >
+                {currentQuestion.options.map((option) => {
+                  const isSelected = currentAnswer === option.id;
+                  return (
+                    <button
+                      key={option.id}
+                      id={`option-btn-${option.id}`}
+                      type="button"
+                      role="radio"
+                      aria-checked={isSelected}
+                      tabIndex={isSelected || (!currentAnswer && option === currentQuestion.options[0]) ? 0 : -1}
+                      onClick={() => {
+                        triggerFeedback('choice');
+                        onSelectOption(currentQuestion.id, option.id);
+                      }}
+                      className={`w-full text-left p-2 sm:p-2.5 md:p-3.5 lg:p-2.5 rounded-lg border-2 transition-all flex items-start gap-2 sm:gap-2.5 md:gap-3 cursor-pointer relative min-h-[44px] active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#004B8D] focus-visible:ring-offset-2 ${
+                        isSelected
+                          ? 'border-[#004B8D] bg-[#004B8D]/5 shadow-xs ring-1 ring-[#004B8D]'
+                          : 'border-gray-200 bg-white hover:border-[#004B8D]/40 hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className="pt-0.5 flex-shrink-0">
+                        <div
+                          className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all ${
+                            isSelected
+                              ? 'border-[#004B8D] bg-[#004B8D] scale-105'
+                              : 'border-gray-400 bg-white'
+                          }`}
+                        >
+                          {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col flex-grow min-w-0">
+                        <span
+                          className={`text-xs sm:text-sm md:text-[16pt] lg:text-base font-semibold leading-snug ${
+                            isSelected ? 'text-[#004B8D]' : 'text-gray-800'
+                          }`}
+                        >
+                          {option.label}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </motion.div>
         </AnimatePresence>
       </div>
 
       {/* Navigation Buttons & Validation Alert (always pinned at bottom) */}
-      <div className="mt-auto pt-1 sm:pt-1.5 border-t border-gray-200 flex flex-col gap-1 flex-shrink-0">
+      <div className="mt-auto pt-1.5 sm:pt-2 border-t border-gray-200 flex flex-col gap-1.5 flex-shrink-0">
         {showValidationError && (
           <div 
             role="alert" 
             aria-live="assertive"
-            className="text-xs sm:text-sm text-[#E8552D] bg-[#E8552D]/10 border border-[#E8552D]/30 px-2 py-0.5 rounded font-semibold flex items-center gap-1.5 animate-pulse"
+            className="text-xs sm:text-sm text-[#E8552D] bg-[#E8552D]/10 border border-[#E8552D]/30 px-3 py-1.5 rounded-md font-semibold flex items-center gap-2 animate-pulse"
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-[#E8552D]" aria-hidden="true" />
-            Please select an option to advance.
+            <span className="w-2 h-2 rounded-full bg-[#E8552D] flex-shrink-0" aria-hidden="true" />
+            {validationErrorMsg || (isTextQuestion ? 'Please enter a 6 or 7 character alphanumeric postal code.' : 'Please select an option to advance.')}
           </div>
         )}
 
@@ -159,13 +269,13 @@ export const SurveyStage: React.FC<SurveyStageProps> = ({
                 onNavigate(-1);
               }
             }}
-            className={`px-3 py-1 sm:px-4 sm:py-1.5 rounded-md font-semibold text-xs sm:text-sm flex items-center gap-1 border transition-all min-h-[36px] active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#004B8D] ${
+            className={`px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-md font-semibold text-xs sm:text-sm flex items-center gap-1.5 border transition-all min-h-[44px] active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#004B8D] ${
               currentStep === 0
                 ? 'opacity-40 cursor-not-allowed border-gray-200 text-gray-400'
                 : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-100 cursor-pointer shadow-xs'
             }`}
           >
-            <ChevronLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <ChevronLeft className="w-4 h-4" />
             Previous
           </button>
 
@@ -176,17 +286,17 @@ export const SurveyStage: React.FC<SurveyStageProps> = ({
               triggerFeedback(isLastQuestion ? 'submit' : 'button');
               onNavigate(1);
             }}
-            className="px-3 py-1 sm:px-4 sm:py-1.5 rounded-md font-bold text-xs sm:text-sm bg-[#004B8D] hover:bg-[#003566] active:scale-95 text-white flex items-center gap-1.5 shadow-xs transition-all cursor-pointer min-h-[36px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-[#004B8D]"
+            className="px-4 py-2 sm:px-5 sm:py-2.5 rounded-md font-bold text-xs sm:text-sm bg-[#004B8D] hover:bg-[#003566] active:scale-95 text-white flex items-center gap-1.5 shadow-xs transition-all cursor-pointer min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-[#004B8D]"
           >
             {isLastQuestion ? (
               <>
-                <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#FFC72C]" />
+                <CheckCircle2 className="w-4 h-4 text-[#FFC72C]" />
                 Calculate Final Persona
               </>
             ) : (
               <>
                 Next
-                <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <ChevronRight className="w-4 h-4" />
               </>
             )}
           </button>
