@@ -22,7 +22,6 @@ const curbsideSocialImg = '/Curbside_Compass_fb.png';
 interface ThankYouViewProps {
   persona: PersonaResult;
   config: SimulationConfig;
-  postalCode?: string;
   onViewResults: () => void;
   onRetake?: () => void;
 }
@@ -30,7 +29,6 @@ interface ThankYouViewProps {
 export const ThankYouView: React.FC<ThankYouViewProps> = ({
   persona,
   config,
-  postalCode,
   onViewResults,
   onRetake
 }) => {
@@ -86,11 +84,7 @@ export const ThankYouView: React.FC<ThankYouViewProps> = ({
             </div>
             <span className="text-xs font-bold text-gray-700">Feedback Completed</span>
           </div>
-          {postalCode && (
-            <span className="text-[0.6875rem] font-bold font-mono text-[#004B8D] bg-blue-50 border border-blue-200 px-2 py-0.5 rounded uppercase">
-              Postal Code: {postalCode}
-            </span>
-          )}
+          
         </div>
 
         {onRetake && (

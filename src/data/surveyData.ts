@@ -268,6 +268,7 @@ export const SURVEY_QUESTIONS: SurveyQuestion[] = [
 ];
 
 export function validatePostalCode(val: string): { isValid: boolean; message?: string } {
+  if (val === 'OPT_OUT') return { isValid: true };
   if (!val || !val.trim()) {
     return { isValid: false, message: 'Please enter your full postal code to continue.' };
   }

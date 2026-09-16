@@ -8,7 +8,7 @@ declare global {
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { SimulationConfig } from '../types';
-import { Volume2, VolumeX, Sliders, RefreshCw, AlertTriangle, ShieldCheck, Flame, RotateCcw } from 'lucide-react';
+import { Volume2, VolumeX, Sliders, RefreshCw, AlertTriangle, ShieldCheck, Flame, RotateCcw, CheckCircle } from 'lucide-react';
 import { feedback, triggerFeedback } from '../utils/feedback';
 
 interface NeighborhoodSimulationProps {
@@ -37,6 +37,7 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
   const [curbsideDemandCount, setCurbsideDemandCount] = useState<number>(0);
   const [curbsidePct, setCurbsidePct] = useState<number>(0);
   const [isRiotActive, setIsRiotActive] = useState<boolean>(false);
+  const [isHarmonyActive, setIsHarmonyActive] = useState<boolean>(false);
   const [zoomScale, setZoomScale] = useState<number>(1.33);
   const [visualAudioAlert, setVisualAudioAlert] = useState<{ text: string; icon: 'horn' | 'siren' | 'alarm' } | null>(null);
   const audioAlertTimerRef = useRef<number | null>(null);
@@ -80,8 +81,16 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
   const soundEnabledRef = useRef<boolean>(soundEnabled && !isCompleted);
   soundEnabledRef.current = soundEnabled && !isCompleted;
 
+  
   const configRef = useRef<SimulationConfig>(config);
   configRef.current = config;
+  
+  const activeQuestionRef = useRef(activeQuestionNumber);
+  activeQuestionRef.current = activeQuestionNumber;
+  
+  const isCompletedRef = useRef(isCompleted);
+  isCompletedRef.current = isCompleted;
+
 
   // Initialize or resume audio context
   const getAudioContext = useCallback(() => {
@@ -254,7 +263,67 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
     let animFrameId: number;
     let alarmCooldown = 0;
     let overloadTimer = 0;
+    let harmonyTimer = 0;
+    let isHarmony = false;
+    let harmonyFlowerGrowth = 0;
+    const flowerBeds: Array<{x: number, y: number, color: string, z: number, id: number}> = [];
+    const residents: Array<{x: number, y: number, state: 'inside' | 'walking_to_garden' | 'planting' | 'visiting', targetX: number, targetY: number, color: string, homeX: number, timer: number, friendIdx: number}> = [];
+    const flowerColors = ['#ff6b6b', '#feca57', '#48dbfb', '#ff9ff3', '#f368e0', '#ff9f43', '#0abde3', '#e17055', '#fdcb6e'];
+    const compColors = ['#FF8C00', '#8A2BE2', '#FF1493', '#00FFFF', '#FFD700', '#ADFF2F']; // Complementary colors to the 6 house colors
+    const shirtColors = ['#e74c3c', '#3498db', '#2ecc71', '#9b59b6', '#f1c40f', '#e67e22', '#1abc9c'];
+    const _lotWidth = 55;
+    let flowerIdCounter = 0;
+    for (let h = 0; h < 6; h++) {
+      const startX = 10 + h * _lotWidth;
+      const numResidents = (h === 5) ? 4 : 2;
+      for (let r = 0; r < numResidents; r++) {
+         const homeDoorX = (h === 5) ? (startX + (r % 2 === 0 ? 5 : 25)) : (startX + 28);
+         residents.push({
+             x: homeDoorX,
+             y: 35,
+             state: 'inside',
+             targetX: homeDoorX,
+             targetY: 35,
+             color: shirtColors[Math.floor(Math.random() * shirtColors.length)],
+             homeX: homeDoorX,
+             timer: Math.random() * 2,
+             friendIdx: -1
+         });
+      }
+      if (h === 5) {
+        for (let j = 0; j < 15; j++) {
+          // Skinny 1 (x: startX+5 to startX+20, door at startX+10, width 3)
+          // Front edge y = 36 to 39
+          let fx1 = startX + 5 + Math.random() * 15;
+          while (fx1 > startX + 9 && fx1 < startX + 14) {
+              fx1 = startX + 5 + Math.random() * 15;
+          }
+          flowerBeds.push({ x: fx1, y: 36 + Math.random() * 3, z: Math.random() * 1.5, color: compColors[h], id: flowerIdCounter++ });
+          
+          // Skinny 2 (x: startX+25 to startX+40, door at startX+30, width 3)
+          let fx2 = startX + 25 + Math.random() * 15;
+          while (fx2 > startX + 29 && fx2 < startX + 34) {
+              fx2 = startX + 25 + Math.random() * 15;
+          }
+          flowerBeds.push({ x: fx2, y: 36 + Math.random() * 3, z: Math.random() * 1.5, color: compColors[h], id: flowerIdCounter++ });
+        }
+      } else {
+        for (let j = 0; j < 30; j++) {
+          // Standard (x: startX+5 to startX+33, door at startX+13, width 4)
+          // Garage starts at startX+33, so we stop before the driveway
+          let fx = startX + 5 + Math.random() * 27;
+          while (fx > startX + 12 && fx < startX + 18) { // wider berth for the door
+              fx = startX + 5 + Math.random() * 27;
+          }
+          flowerBeds.push({ x: fx, y: 36 + Math.random() * 3, z: Math.random() * 1.5, color: compColors[h], id: flowerIdCounter++ });
+        }
+      }
+    }
+    
+    const confetti: Array<{x: number, y: number, vx: number, vy: number, color: string, size: number, angle: number, spin: number}> = [];
+    const confettiColors = ['#009A44', '#004B8D', '#FFC72C', '#E8552D', '#FFFFFF', '#0081BC'];
     let isRioting = false;
+
 
     const particles: Array<{
       x: number;
@@ -827,14 +896,50 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
       ctx!.moveTo(pos.x - 4, pos.y + 12);
       ctx!.lineTo(pos.x - 8, pos.y + 20);
       ctx!.lineTo(pos.x + 2, pos.y + 14);
-      ctx!.closePath();
+      ctx!.fillStyle = '#FFC72C';
+      ctx!.fill();
+      ctx!.stroke();
+      
+      // Honk lines
+      ctx!.strokeStyle = '#193A5A';
+      ctx!.beginPath();
+      ctx!.moveTo(pos.x - 6, pos.y - 2);
+      ctx!.lineTo(pos.x - 2, pos.y + 2);
+      ctx!.moveTo(pos.x + 2, pos.y - 2);
+      ctx!.lineTo(pos.x + 6, pos.y + 2);
+      ctx!.stroke();
+
+      ctx!.restore();
+    }
+
+    function drawSpeechBubble(x: number, y: number, z: number) {
+      const pos = project(x + 1, y - 1, z + 6);
+      ctx!.save();
+      ctx!.fillStyle = '#FFFFFF';
+      ctx!.strokeStyle = '#193A5A';
+      ctx!.lineWidth = 1.0;
+
+      ctx!.beginPath();
+      ctx!.arc(pos.x, pos.y, 8, 0, Math.PI * 2);
       ctx!.fill();
       ctx!.stroke();
 
+      // little dot inside
       ctx!.fillStyle = '#193A5A';
-      ctx!.font = 'bold 9px "Open Sans", sans-serif';
-      ctx!.textAlign = 'center';
-      ctx!.fillText('HONK!', pos.x, pos.y + 3);
+      ctx!.beginPath();
+      ctx!.arc(pos.x - 2, pos.y, 1, 0, Math.PI * 2);
+      ctx!.arc(pos.x + 2, pos.y, 1, 0, Math.PI * 2);
+      ctx!.fill();
+
+      // tail
+      ctx!.beginPath();
+      ctx!.moveTo(pos.x - 2, pos.y + 7);
+      ctx!.lineTo(pos.x - 4, pos.y + 12);
+      ctx!.lineTo(pos.x + 1, pos.y + 7);
+      ctx!.fillStyle = '#FFFFFF';
+      ctx!.fill();
+      ctx!.stroke();
+
       ctx!.restore();
     }
 
@@ -1100,6 +1205,29 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
         // Protester standing on the road blocking traffic (demonstrating / arms raised in demonstration without placards)
         drawBlock(x - 0.3, y + 0.2, z + 3.6, 0.7, 0.7, 2.0, shirtColor, adjustColor(shirtColor, -15), adjustColor(shirtColor, -30));
         drawBlock(x + 0.8, y + 0.2, z + 3.6, 0.7, 0.7, 2.0, shirtColor, adjustColor(shirtColor, -15), adjustColor(shirtColor, -30));
+        
+        // Stick
+        drawBlock(x + 0.5, y + 0.2, z + 4.0, 0.4, 0.4, 6.0, '#8b5a2b', '#6b4226', '#4a2e1b');
+        // Cardboard
+        drawBlock(x - 1.5, y + 0.1, z + 8.5, 3.5, 0.5, 2.5, '#f4ece1', '#e8dfd3', '#dbd0c1');
+        
+        // Text on Placard (Isometric Projection)
+        const textPos = project(x + 0.25, y + 0.35, z + 9.75);
+        ctx!.save();
+        ctx!.font = 'bold ' + (1.2 * scale) + 'px sans-serif';
+        ctx!.fillStyle = '#9e0000';
+        ctx!.textAlign = 'center';
+        ctx!.textBaseline = 'middle';
+        
+        const signText = Math.abs(Math.floor(x * 10)) % 2 === 0 ? 'MORE PARKING' : 'HOMES FOR CARS';
+        if (signText === 'MORE PARKING') {
+            ctx!.fillText('MORE', textPos.x, textPos.y - 1.5 * scale);
+            ctx!.fillText('PARKING', textPos.x, textPos.y + 0.5 * scale);
+        } else {
+            ctx!.fillText('HOMES', textPos.x, textPos.y - 1.5 * scale);
+            ctx!.fillText('FOR CARS', textPos.x, textPos.y + 0.5 * scale);
+        }
+        ctx!.restore();
       }
     }
 
@@ -1589,9 +1717,37 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
           flippedCars.delete(idx);
         }
       }
+      const isAfterQ8 = (activeQuestionRef.current !== undefined && activeQuestionRef.current >= 10) || isCompletedRef.current;
 
+      // Reset triggers if we are no longer after Q8 (e.g. user hits Retake)
+      if (!isAfterQ8) {
+        if (isRioting || flippedCars.size > 0 || activeVehicles.some(v => v.isBurning)) {
+            isRioting = false;
+            setIsRiotActive(false);
+            flippedCars.clear();
+            for (let v of activeVehicles) {
+              v.isBurning = false;
+              v.speed = v.baseSpeed || 1.0;
+            }
+        }
+        overloadTimer = 0;
+        
+        if (isHarmony || harmonyFlowerGrowth > 0) {
+            isHarmony = false;
+            setIsHarmonyActive(false);
+            harmonyTimer = 0;
+            harmonyFlowerGrowth = 0;
+            for (let r of residents) {
+                r.state = 'inside';
+                r.x = r.homeX;
+                r.y = 35;
+            }
+        }
+      }
+      
       // Overload Trigger: vehicles on the road catch fire under critical curbside parking overload
-      if (gaugePercent >= 160) {
+      if (gaugePercent > 150 && isAfterQ8) {
+
         overloadTimer += 1 / 60;
         if (overloadTimer >= 4.0 && !isRioting) {
           isRioting = true;
@@ -1627,6 +1783,25 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
       const hasBurningCars = flippedCars.size > 0 || activeVehicles.some(v => v.isBurning) || isRioting;
       
       const numBurning = flippedCars.size + activeVehicles.filter(v => v.isBurning).length;
+
+      // Harmony Trigger: Well-managed neighborhood
+      
+      const isGoodPlanning = isAfterQ8 && gaugePercent < 50 && !hasBurningCars && !isRioting && activeVehicles.length > 0;
+
+      if (isGoodPlanning) {
+        harmonyTimer += 1 / 60;
+        if (harmonyTimer >= 4.0 && !isHarmony) {
+          isHarmony = true;
+          setIsHarmonyActive(true);
+        }
+      } else {
+        harmonyTimer = Math.max(0, harmonyTimer - 1 / 60);
+        if (harmonyTimer <= 0 && isHarmony) {
+          isHarmony = false;
+          setIsHarmonyActive(false);
+        }
+      }
+
       // Flag to track if we need to trigger audio
       let policeSpawnedThisFrame = false;
       while (emergencyVehicles.length < numBurning * 2) {
@@ -1639,13 +1814,15 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
           emergencyVehicles.push({ type: 'firetruck', x: -900 - idx * 450, y: 117, baseY: 117, targetY: 117, w: 28, d: 9, baseSpeed: 2.0, speed: 2.0, color: '#cc0000', stuckTimer: 0, honkCooldown: 0, honkBubbleTimer: 0, isEmergency: true });
         }
       }
-      
+
+
+
       // Trigger audio precisely when the police asset is injected into the rendering pipeline (asset mounting event)
       if (policeSpawnedThisFrame && soundEnabledRef.current && !window.__riotAudioPlayed) {
          window.__riotAudioPlayed = true;
          
          if (!window.__riotAudio) {
-           window.__riotAudio = new Audio('/audio/riot_news_report.mp3');
+           window.__riotAudio = new Audio(typeof window !== 'undefined' && window.__agentArtifactAudioUrl ? window.__agentArtifactAudioUrl : '/audio/riot_noise.mp3');
            window.__riotAudio.volume = 0.8;
            window.__riotAudio.loop = true;
          }
@@ -1668,28 +1845,12 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
           window.__riotAudio.currentTime = 0;
         }
       }
-
-      // Find road positions of all burning vehicles
-      const burningRoadLocations: number[] = [];
-      for (const idx of flippedCars) {
-        const c = houseCarAssignments[activeIndices[idx]];
-        if (c && c.y >= 90) {
-          burningRoadLocations.push(c.x + 8);
-        }
-      }
-      for (const v of activeVehicles) {
-        if (v.isBurning) {
-          burningRoadLocations.push(v.x + 8);
-        }
-      }
-      if (burningRoadLocations.length === 0 && hasBurningCars) {
-        burningRoadLocations.push(160);
-      }
-
+      
       // Layer 1: Ground, Road, Sidewalks, Driveways
       ctx!.drawImage(bgGroundCanvas, 0, 0);
 
       // Bystanders on sidewalk: when cars start burning, bystanders gather on the sidewalk while protesters block the road
+      const burningRoadLocations = activeVehicles.filter(v => v.isBurning).map(v => v.x).concat(Array.from(flippedCars).map(idx => houseCarAssignments[activeIndices[idx]]?.x || 160));
       const activePedCount = hasBurningCars
         ? Math.min(pedestrians.length, Math.max(14, Math.floor(6 + totalParkedCars * 0.55)))
         : Math.min(pedestrians.length, Math.floor(2 + totalParkedCars * 0.45));
@@ -1964,6 +2125,130 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
       // Layer 2: Houses (drawn on background behind vehicles in front of them)
       ctx!.drawImage(bgHousesCanvas, 0, 0);
 
+      
+
+      // Handle Residents
+      for (let i = 0; i < residents.length; i++) {
+        const r = residents[i];
+        
+        if (isHarmony) {
+          if (r.state === 'inside') {
+             if (Math.random() < 0.05) {
+                 r.state = 'walking_to_garden';
+                 r.targetX = r.homeX - 10 + Math.random() * 20;
+                 r.targetY = 75 + Math.random() * 6; // Sidewalk Y
+             }
+          } else if (r.state === 'walking_to_garden') {
+             const dx = r.targetX - r.x;
+             const dy = r.targetY - r.y;
+             const dist = Math.sqrt(dx*dx + dy*dy);
+             if (dist > 1.0) {
+                 r.x += (dx/dist) * 0.3;
+                 r.y += (dy/dist) * 0.3;
+             } else {
+                 if (harmonyFlowerGrowth >= 0.3 && Math.random() < 0.5) {
+                     r.state = 'visiting';
+                     // Find a random neighbor to visit
+                     r.friendIdx = Math.floor(Math.random() * residents.length);
+                     const friend = residents[r.friendIdx];
+                     r.targetX = friend.x - 5 + Math.random() * 10;
+                     r.targetY = 75 + Math.random() * 6;
+                 } else {
+                     r.state = 'planting';
+                     r.timer = 1.0 + Math.random() * 2.0;
+                 }
+             }
+          } else if (r.state === 'planting') {
+             r.timer -= 1/60;
+             if (r.timer <= 0) {
+                 if (harmonyFlowerGrowth >= 0.3 && Math.random() < 0.8) {
+                     r.state = 'visiting';
+                     r.friendIdx = Math.floor(Math.random() * residents.length);
+                     const friend = residents[r.friendIdx];
+                     r.targetX = friend.x - 5 + Math.random() * 10;
+                     r.targetY = 75 + Math.random() * 6;
+                 } else {
+                     r.state = 'walking_to_garden';
+                     r.targetX = r.homeX - 15 + Math.random() * 30;
+                     r.targetY = 75 + Math.random() * 6;
+                 }
+             }
+          } else if (r.state === 'visiting') {
+             const dx = r.targetX - r.x;
+             const dy = r.targetY - r.y;
+             const dist = Math.sqrt(dx*dx + dy*dy);
+             if (dist > 1.0) {
+                 r.x += (dx/dist) * 0.4;
+                 r.y += (dy/dist) * 0.4;
+             } else {
+                 if (Math.random() < 0.02) {
+                     // Go back to own sidewalk area
+                     r.state = 'walking_to_garden';
+                     r.targetX = r.homeX - 10 + Math.random() * 20;
+                     r.targetY = 75 + Math.random() * 6;
+                 }
+             }
+          }
+        } else {
+          // Go back inside
+          if (r.state !== 'inside') {
+             const dx = r.homeX - r.x;
+             const dy = 35 - r.y;
+             const dist = Math.sqrt(dx*dx + dy*dy);
+             if (dist > 1.0) {
+                 r.x += (dx/dist) * 0.6;
+                 r.y += (dy/dist) * 0.6;
+                 r.state = 'walking_to_garden'; // just using this state to mean 'moving'
+             } else {
+                 r.x = r.homeX;
+                 r.y = 35;
+                 r.state = 'inside';
+             }
+          }
+        }
+      }
+
+      if (isHarmony) {
+        harmonyFlowerGrowth = Math.min(1.0, harmonyFlowerGrowth + 0.005);
+      } else {
+        harmonyFlowerGrowth = Math.max(0.0, harmonyFlowerGrowth - 0.02);
+      }
+      
+            // Draw growing flower beds behind vehicles but in front of houses
+
+      // Draw Residents if outside
+      ctx!.save();
+      for (let i = 0; i < residents.length; i++) {
+         const r = residents[i];
+         if (r.state !== 'inside') {
+             // If visiting and close to target, trigger talking animation
+             const isTalking = r.state === 'visiting' && (Math.abs(r.targetX - r.x) < 2.0) && (Math.abs(r.targetY - r.y) < 2.0);
+             const zBob = isTalking && (Date.now() % 600 < 300) ? 1.0 : 0; // Simple bobbing animation
+             
+             drawPedestrian(r.x, r.y, zBob, r.color, isTalking ? 'bystander' : 'normal');
+             
+             if (isTalking) {
+                 drawSpeechBubble(r.x, r.y, zBob);
+             }
+         }
+      }
+      ctx!.restore();
+
+
+      if (harmonyFlowerGrowth > 0) {
+        for (let i = 0; i < flowerBeds.length; i++) {
+          const f = flowerBeds[i];
+          const individualGrowth = Math.max(0, Math.min(1, (harmonyFlowerGrowth * 1.5) - (i % 10) * 0.05));
+          if (individualGrowth > 0) {
+             const scaleAnim = Math.sin(individualGrowth * Math.PI / 2);
+             const h = 10 * scaleAnim;
+             // Stem 
+             drawBlock(f.x, f.y, 0, 2.0, 2.0, h, '#1e633a', '#144528', '#144528');
+             // Flower head (very large, 8x8 wide in simulation units)
+             drawBlock(f.x - 3.0 * scaleAnim, f.y - 3.0 * scaleAnim, h, 8.0 * scaleAnim, 8.0 * scaleAnim, 4.0 * scaleAnim, f.color, f.color, f.color);
+          }
+        }
+      }
       // Layer 3: Vehicles (Parked Cars, Vans, Emergency, Active Traffic)
       // Grouping all vehicle graphic asset layers together and sorting by depth (Y-axis) for proper collision visual overlap
       const renderQueue: any[] = [];
@@ -2043,6 +2328,42 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
         const mm = microMobility[i];
         if (mm.type === 'bike') drawCyclist(mm.x, mm.y, 0, mm.color);
         else drawScooter(mm.x, mm.y, 0, mm.color);
+      }
+
+      
+      // Harmony Confetti Layer
+      if (isHarmony) {
+         if (Math.random() < 0.2) {
+             for (let i=0; i<5; i++) {
+                 confetti.push({
+                     x: Math.random() * 1200,
+                     y: -20,
+                     vx: (Math.random() - 0.5) * 2,
+                     vy: Math.random() * 2 + 1,
+                     color: confettiColors[Math.floor(Math.random() * confettiColors.length)],
+                     size: Math.random() * 6 + 4,
+                     angle: Math.random() * Math.PI * 2,
+                     spin: (Math.random() - 0.5) * 0.2
+                 });
+             }
+         }
+      }
+      for (let i = confetti.length - 1; i >= 0; i--) {
+         const c = confetti[i];
+         c.x += c.vx;
+         c.y += c.vy;
+         c.angle += c.spin;
+         
+         ctx!.save();
+         ctx!.translate(c.x, c.y);
+         ctx!.rotate(c.angle);
+         ctx!.fillStyle = c.color;
+         ctx!.fillRect(-c.size/2, -c.size/2, c.size, c.size * 0.6);
+         ctx!.restore();
+         
+         if (c.y > 800) {
+             confetti.splice(i, 1);
+         }
       }
 
       animFrameId = requestAnimationFrame(animate);
@@ -2197,6 +2518,48 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
         >
           <p>Your browser does not support the canvas element needed to render the neighborhood simulation.</p>
         </canvas>
+
+        
+        {/* Good News Harmony Overlay */}
+        {isHarmonyActive && !isRiotActive && (
+          <div
+            id="harmony-overlay"
+            className="absolute inset-0 pointer-events-none z-30 flex flex-col justify-between overflow-hidden rounded-lg"
+          >
+            <div className="m-2 sm:m-4 flex items-center gap-2 sm:gap-3 bg-white/95 border-l-4 border-[#009A44] px-2.5 py-1 sm:px-4 sm:py-2 rounded shadow-2xl max-w-max">
+              <span className="bg-[#009A44] text-white font-extrabold text-[10px] sm:text-xs px-1.5 py-0.5 rounded">
+                ⭐ EXCELLENCE
+              </span>
+              <span className="text-[#004B8D] text-[10px] sm:text-xs md:text-sm font-bold tracking-wider">
+                CITY PLANNING COMMENDATION
+              </span>
+            </div>
+
+            <div className="w-full bg-[#009A44]/95 border-t-2 sm:border-t-4 border-[#FFC72C] shadow-2xl flex flex-col justify-between box-border">
+              <div className="bg-[#FFC72C] text-[#111] text-[9px] sm:text-xs font-black px-2.5 py-0.5 sm:px-4 sm:py-1 tracking-widest flex items-center gap-1.5 uppercase border-b border-white/20">
+                <CheckCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> AWARD: OPTIMAL CURB MANAGEMENT
+              </div>
+              <div className="px-2.5 py-1 sm:px-4 sm:py-1.5">
+                <h4 className="text-white text-xs sm:text-sm font-black uppercase tracking-wide m-0 truncate">
+                  NEIGHBORHOOD ACHIEVES PERFECT TRAFFIC HARMONY
+                </h4>
+                <p className="text-[#b3ffd1] text-[9px] sm:text-xs font-bold m-0 truncate">
+                  SMART POLICIES KEEP STREETS CLEAR • BUSINESSES BOOMING • RESIDENTS HAPPY
+                </p>
+              </div>
+              <div className="w-full h-5 sm:h-6 bg-white border-t border-[#004B8D] flex items-center overflow-hidden">
+                <div className="bg-[#004B8D] text-white font-black text-[9px] px-2 h-full flex items-center whitespace-nowrap z-10">
+                  REPORTER
+                </div>
+                <div className="text-[#004B8D] text-[9px] sm:text-[10px] font-bold px-2 whitespace-nowrap overflow-hidden flex-1 h-full flex items-center">
+                  <span className="inline-block animate-marquee uppercase">
+                    "It's beautiful out here. Delivery vans have space, visitors are finding spots easily, and the air is clear. A masterclass in urban planning!"
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Breaking News Riot Overlay (appears at critical overload or vehicle fire) */}
         {isRiotActive && (

@@ -40,3 +40,13 @@ export interface PersonaResult {
   edmontonPolicyFit: string;
   badgeColor: string;
 }
+
+
+declare global {
+  interface Window {
+    __riotAudioPlayed?: boolean;
+    __riotAudioPending?: boolean;
+    __riotAudio?: HTMLAudioElement;
+    __agentArtifactAudioUrl?: string;
+  }
+}

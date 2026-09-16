@@ -1,65 +1,26 @@
-import re
+with open("src/components/NeighborhoodSimulation.tsx", "r") as f:
+    lines = f.readlines()
 
-with open('src/components/NeighborhoodSimulation.tsx', 'r') as f:
-    content = f.read()
+new_lines = []
+skip = False
+for line in lines:
+    if "// Trigger audio precisely when the police asset is injected" in line:
+        skip = True
+    if skip and "      // Stop and reset audio when riot ends completely" in line:
+        skip = False
 
-# Replace riot toggle logic for flipped cars
-riot_target2 = """              if (soundEnabledRef.current) {
-                playCriticalAlarm();
-                setTimeout(() => {
-                  if (soundEnabledRef.current) {
-                    const riotAudio = new Audio('/city-traffic.mp3'); // Fallback to traffic if missing
-                    riotAudio.volume = 0.6;
-                    riotAudio.play().catch(e => console.warn('Could not play riot audio', e));
-                  }
-                }, 1200);
-              }"""
-riot_replacement2 = """              if (soundEnabledRef.current) {
-                playCriticalAlarm();
-                setTimeout(() => {
-                  if (soundEnabledRef.current) {
-                    // Try to play user audio file if present, otherwise fallback
-                    const userAudio = new Audio('/audio/riot_news_report.mp3');
-                    userAudio.volume = 0.9;
-                    userAudio.play().catch(() => {
-                      const fallback = new Audio('/city-traffic.mp3');
-                      fallback.volume = 0.6;
-                      fallback.play().catch(e => console.warn('Could not play fallback riot audio', e));
-                    });
-                  }
-                }, 1200);
-              }"""
-content = content.replace(riot_target2, riot_replacement2)
+    if "// Stop and reset audio when riot ends completely" in line:
+        skip = True
+    if skip and "      // Layer 1: Ground, Road, Sidewalks, Driveways" in line:
+        skip = False
 
-# Same for moving traffic
-riot_target = """          if (soundEnabledRef.current) {
-            playCriticalAlarm();
-            setTimeout(() => {
-              if (soundEnabledRef.current) {
-                const riotAudio = new Audio('/audio/riot_noise.ogg');
-                riotAudio.volume = 0.25;
-                riotAudio.play().catch(e => console.warn('Could not play riot audio', e));
-              }
-            }, 1200); // Play after sirens start
-          }"""
-riot_replacement = """          if (soundEnabledRef.current) {
-            playCriticalAlarm();
-            setTimeout(() => {
-              if (soundEnabledRef.current) {
-                // Try to play user audio file if present, otherwise fallback
-                const userAudio = new Audio('/audio/riot_news_report.mp3');
-                userAudio.volume = 0.9;
-                userAudio.play().catch(() => {
-                  const fallback = new Audio('/city-traffic.mp3');
-                  fallback.volume = 0.6;
-                  fallback.play().catch(e => console.warn('Could not play fallback riot audio', e));
-                });
-              }
-            }, 1200); // Play after sirens start
-          }"""
-content = content.replace(riot_target, riot_replacement)
+    if "// Resume riot audio if it was blocked" in line:
+        skip = True
+    if skip and "            const canvas = canvasRef.current;" in line:
+        skip = False
+        
+    if not skip:
+        new_lines.append(line)
 
-with open('src/components/NeighborhoodSimulation.tsx', 'w') as f:
-    f.write(content)
-
-print("Applied master riot audio patch")
+with open("src/components/NeighborhoodSimulation.tsx", "w") as f:
+    f.writelines(new_lines)

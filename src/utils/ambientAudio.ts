@@ -118,6 +118,7 @@ class AmbientAudioManager {
 
   // Start continuous, sample-accurate loop in Web Audio
   private startWebAudioLoop(): void {
+    return;
     if (!this.audioContext || !this.audioBuffer || !this.gainNode) return;
 
     try {
@@ -262,6 +263,7 @@ class AmbientAudioManager {
   }
 
   public play(): void {
+    return;
     if (!this.soundEnabled) return;
     this.hasInteracted = true;
 
