@@ -16,6 +16,7 @@ import {
   Download
 } from 'lucide-react';
 import { triggerFeedback } from '../utils/feedback';
+import { useAppText } from '../context/TextContentContext';
 
 const curbsideSocialImg = '/Curbside_Compass_fb.png';
 
@@ -32,6 +33,7 @@ export const ThankYouView: React.FC<ThankYouViewProps> = ({
   onViewResults,
   onRetake
 }) => {
+  const { t } = useAppText();
   const [shareMode, setShareMode] = useState<'with_persona' | 'general'>('with_persona');
   const [copied, setCopied] = useState<boolean>(false);
   const [platformNotice, setPlatformNotice] = useState<string | null>(null);
@@ -82,7 +84,9 @@ export const ThankYouView: React.FC<ThankYouViewProps> = ({
             <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700">
               <CheckCircle className="w-4 h-4 text-[#009A44]" />
             </div>
-            <span className="text-xs font-bold text-gray-700">Feedback Completed</span>
+            <span className="text-xs font-bold text-gray-700">
+              {t('share_feedback_completed', 'Feedback Completed')}
+            </span>
           </div>
           
         </div>
@@ -97,7 +101,7 @@ export const ThankYouView: React.FC<ThankYouViewProps> = ({
             className="text-xs font-bold flex items-center justify-center gap-1.5 text-gray-700 hover:text-[#004B8D] bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded-lg transition-all cursor-pointer active:scale-95 min-h-[44px] min-w-[44px]"
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            <span>Start Over</span>
+            <span>{t('share_start_over', 'Start Over')}</span>
           </button>
         )}
       </div>
@@ -110,18 +114,21 @@ export const ThankYouView: React.FC<ThankYouViewProps> = ({
           <div className="flex items-center gap-2 mb-1.5">
             <Share2 className="w-4.5 h-4.5 text-[#0081BC]" />
             <h1 className="text-sm sm:text-base font-black text-[#004B8D] tracking-tight">
-              Thank You for Your Feedback! Share the Curbside Compass
+              {t('share_headline', 'Thank You for Your Feedback! Share the Curbside Compass')}
             </h1>
           </div>
 
           <p className="text-xs text-gray-600 leading-snug mb-3">
-            Your perspectives on neighbourhood parking provide valuable insight for the City of Edmonton. Encourage your neighbours, friends, and community members to discover their parking persona and have their say on curbside policies:
+            {t(
+              'share_intro',
+              'Your perspectives on neighbourhood parking provide valuable insight for the City of Edmonton. Encourage your neighbours, friends, and community members to discover their parking persona and have their say on curbside policies:'
+            )}
           </p>
 
           {/* Option Selection: Share Persona Result vs General Encouraging Invite */}
           <div className="bg-slate-50 border border-slate-200/90 rounded-xl p-2 sm:p-2.5 mb-2.5">
             <span className="block text-[0.625rem] font-bold uppercase tracking-wider text-gray-500 mb-1.5">
-              Choose What to Share
+              {t('share_choose_label', 'Choose What to Share')}
             </span>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 mb-2">
@@ -141,7 +148,9 @@ export const ThankYouView: React.FC<ThankYouViewProps> = ({
               >
                 <div className="flex items-center gap-1.5 mb-0.5">
                   <User className={`w-3.5 h-3.5 ${shareMode === 'with_persona' ? 'text-[#004B8D]' : 'text-gray-500'}`} />
-                  <span className="text-[0.6875rem] font-bold">Include My Persona</span>
+                  <span className="text-[0.6875rem] font-bold">
+                    {t('share_opt_persona', 'Include My Persona')}
+                  </span>
                 </div>
                 <div className="text-[0.59375rem] text-gray-600 leading-tight line-clamp-1">
                   Includes: <strong className="text-[#004B8D]">{persona.title}</strong>
@@ -164,7 +173,9 @@ export const ThankYouView: React.FC<ThankYouViewProps> = ({
               >
                 <div className="flex items-center gap-1.5 mb-0.5">
                   <Users className={`w-3.5 h-3.5 ${shareMode === 'general' ? 'text-[#004B8D]' : 'text-gray-500'}`} />
-                  <span className="text-[0.6875rem] font-bold">General Invite Only</span>
+                  <span className="text-[0.6875rem] font-bold">
+                    {t('share_opt_general', 'General Invite Only')}
+                  </span>
                 </div>
                 <div className="text-[0.59375rem] text-gray-600 leading-tight">
                   Encouraging post without persona results
@@ -317,17 +328,20 @@ export const ThankYouView: React.FC<ThankYouViewProps> = ({
               {copied ? (
                 <>
                   <Check className="w-4 h-4 text-white" />
-                  <span>Copied to Clipboard!</span>
+                  <span>{t('share_copied_btn', 'Copied to Clipboard!')}</span>
                 </>
               ) : (
                 <>
                   <Copy className="w-4 h-4 text-gray-600" />
-                  <span>Copy Full Post Text to Clipboard</span>
+                  <span>{t('share_copy_btn', 'Copy Full Post Text to Clipboard')}</span>
                 </>
               )}
             </button>
-            <p className="text-center text-xs text-gray-500 mt-1.5">
-              Copies your Persona result and the survey link to paste anywhere.
+            <p className="text-center text-xs text-gray-500 mt-1.5 whitespace-pre-line">
+              {t(
+                'share_copy_helper_text',
+                'Copies your Curbside Compass result\nand the survey link to paste and share anywhere'
+              )}
             </p>
           </div>
         </div>
@@ -344,7 +358,7 @@ export const ThankYouView: React.FC<ThankYouViewProps> = ({
           className="text-xs sm:text-sm font-bold text-[#004B8D] hover:text-[#003366] flex items-center gap-1.5 py-2 px-3 rounded-lg hover:bg-blue-50 transition-colors cursor-pointer active:scale-95 min-h-[44px] min-w-[44px]"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>View Parking Persona</span>
+          <span>{t('share_view_persona_btn', 'View Parking Persona')}</span>
         </button>
 
         {onRetake && (
@@ -356,7 +370,7 @@ export const ThankYouView: React.FC<ThankYouViewProps> = ({
             }}
             className="text-xs sm:text-sm font-bold text-gray-600 hover:text-gray-900 flex items-center gap-1.5 py-2 px-3 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer active:scale-95 min-h-[44px] min-w-[44px]"
           >
-            <span>Retake Assessment</span>
+            <span>{t('share_retake_btn', 'Retake Assessment')}</span>
             <ExternalLink className="w-3.5 h-3.5 text-gray-400" />
           </button>
         )}

@@ -2,6 +2,8 @@ import { useState, useMemo, useEffect } from 'react';
 import { NeighborhoodSimulation } from './components/NeighborhoodSimulation';
 import { SurveyStage } from './components/SurveyStage';
 import { ResultsView } from './components/ResultsView';
+import { GoogleSheetSyncModal } from './components/GoogleSheetSyncModal';
+import { useAppText } from './context/TextContentContext';
 import {
   SURVEY_QUESTIONS,
   INITIAL_SIM_CONFIG,
@@ -9,11 +11,13 @@ import {
   validatePostalCode
 } from './data/surveyData';
 import { SimulationConfig } from './types';
-import { Compass, RotateCcw } from 'lucide-react';
+import { Compass, RotateCcw, FileSpreadsheet } from 'lucide-react';
 import { feedback, triggerFeedback } from './utils/feedback';
 import { ambientAudio } from './utils/ambientAudio';
 
 export default function App() {
+  const { t, isCustomActive, itemCount } = useAppText();
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState<boolean>(false);
   const [currentStep, setCurrentStep] = useState<number>(() => {
     try {
       const saved = localStorage.getItem('curbsideCompass_step');
@@ -228,17 +232,38 @@ export default function App() {
       <header className="h-10 sm:h-11 bg-[#004B8D] text-white flex items-center justify-between px-2.5 sm:px-4 z-30 shadow-xs flex-shrink-0 border-b border-[#003566]">
         <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
           <div className="w-5 h-5 sm:w-6 sm:h-6 rounded bg-[#FFC72C] flex items-center justify-center font-black text-[#11283f] text-[0.625rem] sm:text-xs shadow-xs flex-shrink-0">
-            YEG
+            {t('header_yeg', 'YEG')}
           </div>
           <div className="min-w-0">
             <h1 className="text-xs sm:text-sm font-black tracking-wide flex items-center gap-1.5 leading-none truncate">
-              <span className="text-white">Curbside</span>
-              <span className="text-[#FFC72C]">Compass</span>
+              <span className="text-white">{t('header_title_curbside', 'Curbside')}</span>
+              <span className="text-[#FFC72C]">{t('header_title_compass', 'Compass')}</span>
             </h1>
           </div>
         </div>
 
         <div className="flex items-center gap-1.5 sm:gap-2.5 flex-shrink-0">
+          {/* Google Sheets Sync Button */}
+          <button
+            type="button"
+            onClick={() => setIsSyncModalOpen(true)}
+            title={isCustomActive ? `Google Sheet Synced (${itemCount} items) - Click to Manage` : 'Sync Copy from Google Sheets'}
+            aria-label="Google Sheet Content Sync"
+            className={`text-[0.6875rem] sm:text-xs flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 rounded transition-all min-h-[44px] cursor-pointer border ${
+              isCustomActive
+                ? 'bg-emerald-700/80 hover:bg-emerald-600 text-white border-emerald-400'
+                : 'bg-white/10 hover:bg-white/20 text-gray-200 border-white/20'
+            }`}
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5 text-[#FFC72C]" />
+            <span className="hidden sm:inline font-bold">
+              {isCustomActive ? 'Sheet Synced' : 'Sync Sheet'}
+            </span>
+            {isCustomActive && (
+              <span className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse" />
+            )}
+          </button>
+
           <div className="flex items-center bg-[#003566] rounded-md border border-[#002244] overflow-hidden flex-shrink-0">
             <button
               onClick={() => { setHasManuallyChangedFont(true); setFontSizePt(f => Math.max(8, f - 2)); }}
@@ -263,7 +288,7 @@ export default function App() {
           <div className="hidden lg:flex items-center gap-1.5 text-[0.6875rem] bg-black/25 px-2.5 py-1 rounded-full border border-white/15">
             <Compass className="w-3.5 h-3.5 text-[#FFC72C]" />
             <span className="text-gray-300">
-              {isCompleted ? 'Final Persona:' : 'Live Trend:'}
+              {isCompleted ? t('header_final_persona', 'Final Persona:') : t('header_live_trend', 'Live Trend:')}
             </span>
             <span className="font-bold text-white truncate max-w-[170px]">
               {currentPersona.title.replace('The ', '').replace(' Profile', '')}
@@ -278,7 +303,7 @@ export default function App() {
               className="text-[0.6875rem] sm:text-xs font-bold flex items-center justify-center gap-1.5 bg-[#FFC72C] text-[#004B8D] hover:bg-[#ffe066] active:bg-[#f5bc20] active:scale-95 px-2.5 sm:px-3 py-1 rounded shadow-xs transition-all cursor-pointer min-h-[44px] min-w-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFC72C] focus-visible:ring-offset-1 focus-visible:ring-offset-[#193A5A]"
             >
               <RotateCcw className="w-3.5 h-3.5 stroke-[2.5]" />
-              <span>Retake</span>
+              <span>{t('header_retake_btn', 'Retake')}</span>
             </button>
           ) : (
             <button
@@ -288,7 +313,7 @@ export default function App() {
               className="text-[0.6875rem] sm:text-xs flex items-center justify-center gap-1 bg-white/15 hover:bg-white/25 active:bg-white/30 active:scale-95 text-white px-2 sm:px-2.5 py-1 rounded transition-colors min-h-[44px] min-w-[44px] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFC72C] focus-visible:ring-offset-1 focus-visible:ring-offset-[#193A5A]"
             >
               <RotateCcw className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-              <span className="hidden sm:inline font-semibold">Reset</span>
+              <span className="hidden sm:inline font-semibold">{t('header_reset_btn', 'Reset')}</span>
             </button>
           )}
         </div>
@@ -336,14 +361,18 @@ export default function App() {
               />
             ) : (
               <div className="flex flex-col items-center justify-center h-full p-8 text-center space-y-6 animate-in fade-in zoom-in duration-500">
-                 <h2 className="text-2xl sm:text-3xl font-black text-[#004B8D]">Watch the Street!</h2>
+                 <h2 className="text-2xl sm:text-3xl font-black text-[#004B8D]">
+                   {t('watch_title', 'Watch the Street!')}
+                 </h2>
                  <p className="text-gray-600 max-w-md text-sm sm:text-base">
-                   Based on your policy choices, the neighborhood parking demand has been set. Observe the simulation to see if your policies lead to harmony or chaos!
+                   {t('watch_desc', 'Based on your policy choices, the neighborhood parking demand has been set. Observe the simulation to see if your policies lead to harmony or chaos!')}
                  </p>
                  <div className="flex gap-4 pt-4">
-                   <button onClick={() => setCurrentStep(prev => prev - 1)} className="px-5 py-2.5 bg-gray-100 text-gray-700 font-bold rounded-lg shadow-sm hover:bg-gray-200 transition-all border border-gray-300">Back</button>
-                   <button onClick={() => setIsCompleted(true)} className="px-6 py-2.5 bg-[#004B8D] text-white font-bold rounded-lg shadow-md hover:bg-[#003566] transition-all flex items-center gap-2">
-                     See Final Results
+                   <button onClick={() => setCurrentStep(prev => prev - 1)} className="px-5 py-2.5 bg-gray-100 text-gray-700 font-bold rounded-lg shadow-sm hover:bg-gray-200 transition-all border border-gray-300 cursor-pointer">
+                     {t('watch_btn_back', 'Back')}
+                   </button>
+                   <button onClick={() => setIsCompleted(true)} className="px-6 py-2.5 bg-[#004B8D] text-white font-bold rounded-lg shadow-md hover:bg-[#003566] transition-all flex items-center gap-2 cursor-pointer">
+                     {t('watch_btn_results', 'See Final Results')}
                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
                    </button>
                  </div>
@@ -360,6 +389,12 @@ export default function App() {
           )}
         </section>
       </main>
+
+      {/* Google Sheets Sync Modal */}
+      <GoogleSheetSyncModal
+        isOpen={isSyncModalOpen}
+        onClose={() => setIsSyncModalOpen(false)}
+      />
     </div>
   );
 }

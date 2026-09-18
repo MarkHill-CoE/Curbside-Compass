@@ -3,6 +3,7 @@ import { SurveyQuestion } from '../types';
 import { ChevronLeft, ChevronRight, CheckCircle2, MapPin } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { triggerFeedback } from '../utils/feedback';
+import { useAppText } from '../context/TextContentContext';
 
 interface SurveyStageProps {
   questions: SurveyQuestion[];
@@ -27,6 +28,7 @@ export const SurveyStage: React.FC<SurveyStageProps> = ({
   totalX,
   totalY
 }) => {
+  const { t } = useAppText();
   const currentQuestion = questions[currentStep];
   const isLastQuestion = currentStep === questions.length - 1;
   const progressPct = ((currentStep + 1) / questions.length) * 100;
@@ -56,18 +58,22 @@ export const SurveyStage: React.FC<SurveyStageProps> = ({
           <span className="flex items-center gap-1.5 truncate">
             <span className="inline-block w-2 h-2 rounded-full bg-[#004B8D] flex-shrink-0" />
             <span className="uppercase tracking-wider font-bold text-[#004B8D]">
-              Question {currentStep + 1} of {questions.length}
+              {t(`q${currentStep + 1}_progress_title`, `Question ${currentStep + 1} of ${questions.length}`)}
             </span>
             <span className="text-gray-300">•</span>
             <span className="capitalize text-gray-600 truncate">
-              {currentQuestion.category === 'location'
-                ? 'Neighbourhood Location'
-                : currentQuestion.category === 'demographics'
-                ? 'Demographics'
-                : `${currentQuestion.category} Policy`}
+              {t(
+                `q${currentStep + 1}_category`,
+                currentQuestion.category === 'location'
+                  ? 'Neighbourhood Location'
+                  : currentQuestion.category === 'demographics'
+                  ? 'Demographics'
+                  : `${currentQuestion.category} Policy`
+              )}
             </span>
           </span>
         </div>
+
 
         {/* Progress Bar */}
         <div className="w-full h-1 bg-gray-200 rounded-full overflow-hidden">
@@ -132,40 +138,9 @@ export const SurveyStage: React.FC<SurveyStageProps> = ({
                   />
                 </div>
 
-                {/* Real-time validation indicator */}
-                <div className="flex flex-wrap items-center gap-2 text-xs">
-                  {(() => {
-                    if (currentAnswer === 'OPT_OUT') {
-                      return null;
-                    }
-                    const alphaNumCount = (currentAnswer || '').replace(/[^A-Z0-9]/gi, '').length;
-                    if (alphaNumCount === 0) {
-                      return (
-                        <span className="text-gray-500 font-medium">
-                          Expecting 6 or 7 alphanumeric characters (e.g., T5J 2R7 or T5J2R7)
-                        </span>
-                      );
-                    }
-                    if (alphaNumCount === 6 || alphaNumCount === 7) {
-                      return (
-                        <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                          Valid postal code ({alphaNumCount} alphanumeric characters)
-                        </span>
-                      );
-                    }
-                    return (
-                      <span className="inline-flex items-center gap-1 font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded">
-                        {alphaNumCount} alphanumeric character{alphaNumCount === 1 ? '' : 's'} entered (need 6 or 7)
-                      </span>
-                    );
-                  })()}
-                </div>
 
-                <div className="bg-[#193A5A]/5 border border-[#004B8D]/15 rounded-lg p-2.5 sm:p-3 text-xs text-gray-700 leading-relaxed max-w-lg mt-1">
-                  <span className="font-bold text-[#004B8D] block mb-0.5">Edmonton Tip:</span>
-                  Edmonton postal codes begin with <span className="font-mono font-semibold">T5</span> or <span className="font-mono font-semibold">T6</span> (for example, <span className="font-mono font-semibold">T5J 2R7</span> for Downtown, <span className="font-mono font-semibold">T6G 2R3</span> for Garneau/University, or <span className="font-mono font-semibold">T5K 1X4</span> for Oliver/Wîhkwêntôwin).
-                </div>
+
+
                 
                 <label className="flex items-center gap-2 mt-2 cursor-pointer w-fit opacity-80 hover:opacity-100 transition-opacity">
                   <input
@@ -177,7 +152,9 @@ export const SurveyStage: React.FC<SurveyStageProps> = ({
                     }}
                     className="w-4 h-4 text-[#004B8D] rounded border-gray-300 focus:ring-[#004B8D]"
                   />
-                  <span className="text-sm font-semibold text-gray-700 select-none">I prefer not to provide my postal code</span>
+                  <span className="text-sm font-semibold text-gray-700 select-none">
+                    {t('q9_opt_out_label', 'I prefer not to provide my postal code')}
+                  </span>
                 </label>
               </div>
             ) : (
@@ -271,7 +248,7 @@ export const SurveyStage: React.FC<SurveyStageProps> = ({
             className="text-xs sm:text-sm text-[#E8552D] bg-[#E8552D]/10 border border-[#E8552D]/30 px-3 py-1.5 rounded-md font-semibold flex items-center gap-2 animate-pulse"
           >
             <span className="w-2 h-2 rounded-full bg-[#E8552D] flex-shrink-0" aria-hidden="true" />
-            {validationErrorMsg || (isTextQuestion ? 'Please enter a 6 or 7 character alphanumeric postal code.' : 'Please select an option to advance.')}
+            {validationErrorMsg || (isTextQuestion ? t('nav_alert_postal_format', 'Please enter a 6 or 7 character alphanumeric postal code.') : t('nav_alert_select_option', 'Please select an option to advance.'))}
           </div>
         )}
 
@@ -293,7 +270,7 @@ export const SurveyStage: React.FC<SurveyStageProps> = ({
             }`}
           >
             <ChevronLeft className="w-4 h-4" />
-            Previous
+            {t('nav_btn_previous', 'Previous')}
           </button>
 
           <button
@@ -308,11 +285,11 @@ export const SurveyStage: React.FC<SurveyStageProps> = ({
             {isLastQuestion ? (
               <>
                 <CheckCircle2 className="w-4 h-4 text-[#FFC72C]" />
-                Calculate Final Persona
+                {t('nav_btn_calc_persona', 'Calculate Final Persona')}
               </>
             ) : (
               <>
-                Next
+                {t('nav_btn_next', 'Next')}
                 <ChevronRight className="w-4 h-4" />
               </>
             )}

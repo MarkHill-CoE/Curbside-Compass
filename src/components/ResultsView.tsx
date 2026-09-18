@@ -4,6 +4,7 @@ import { Award, MapPin, CheckCircle, Shield, ChevronRight, Compass, Share2 } fro
 import { ThankYouView } from './ThankYouView';
 import { PolicyCompassGraph } from './PolicyCompassGraph';
 import { triggerFeedback } from '../utils/feedback';
+import { useAppText } from '../context/TextContentContext';
 
 interface ResultsViewProps {
   persona: PersonaResult;
@@ -20,6 +21,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
   config,
   onRetake
 }) => {
+  const { t } = useAppText();
   const [rating, setRating] = useState<number | null>(null);
   const [feedback, setFeedback] = useState<string>('');
   const [submitted, setSubmitted] = useState<boolean>(false);
@@ -68,10 +70,10 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
         <div className="flex justify-end mb-1 sm:mb-2">
            <button
             onClick={handleShare}
-            className="flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-blue-50 text-[#004B8D] border border-blue-200 hover:bg-[#004B8D] hover:text-white transition-colors rounded-lg font-bold text-xs sm:text-sm active:scale-95"
+            className="flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-blue-50 text-[#004B8D] border border-blue-200 hover:bg-[#004B8D] hover:text-white transition-colors rounded-lg font-bold text-xs sm:text-sm active:scale-95 cursor-pointer"
           >
             <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            <span>Share</span>
+            <span>{t('results_share_btn', 'Share')}</span>
           </button>
         </div>
         <div className="flex-grow flex flex-col gap-2 sm:gap-2.5 min-h-0">
@@ -105,7 +107,8 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
             onClick={() => setStep(2)}
             className="flex items-center justify-center gap-2 px-5 sm:px-6 py-2 sm:py-2.5 bg-[#004B8D] text-white rounded-lg font-bold shadow hover:bg-[#003866] transition-colors active:scale-95 text-xs sm:text-sm min-h-[44px] min-w-[44px] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-[#004B8D]"
           >
-            Next: Share Feedback <ChevronRight className="w-4 h-4" />
+            <span>{t('results_next_feedback', 'Next: Share Feedback')}</span>
+            <ChevronRight className="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -120,7 +123,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
       <div className="bg-white border border-gray-200 rounded-xl p-2 sm:p-2.5 shadow-xs flex-shrink-0">
         <h3 className="text-[0.625rem] sm:text-xs font-bold uppercase tracking-wider text-gray-500 mb-1 sm:mb-1.5 flex items-center gap-1.5">
           <Compass className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0081BC]" />
-          Your Curbside Compass Result
+          {t('results_compass_result_title', 'Your Curbside Compass Result')}
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 sm:gap-2">
           <div className="sm:col-span-1 bg-blue-50/80 border border-blue-100 rounded-lg px-2 py-1.5 sm:py-2 flex items-center text-xs sm:text-sm gap-2 h-full">
@@ -133,13 +136,17 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
           </div>
           <div className="sm:col-span-2 grid grid-cols-2 gap-1.5 sm:gap-2">
             <div className="bg-gray-50 p-1.5 sm:p-2 rounded-lg border border-gray-200 flex flex-col justify-center">
-              <span className="text-gray-500 block text-[0.625rem] sm:text-xs mb-0.5">Curbside Fee Model</span>
+              <span className="text-gray-500 block text-[0.625rem] sm:text-xs mb-0.5">
+                {t('results_fee_model_label', 'Curbside Fee Model')}
+              </span>
               <span className="font-bold capitalize text-gray-800 text-xs sm:text-sm truncate">
                 {config.curbsideFeeModel}
               </span>
             </div>
             <div className="bg-gray-50 p-1.5 sm:p-2 rounded-lg border border-gray-200 flex flex-col justify-center">
-              <span className="text-gray-500 block text-[0.625rem] sm:text-xs mb-0.5">Enforcement Level</span>
+              <span className="text-gray-500 block text-[0.625rem] sm:text-xs mb-0.5">
+                {t('results_enforcement_label', 'Enforcement Level')}
+              </span>
               <span className="font-bold capitalize text-gray-800 flex items-center gap-1.5 text-xs sm:text-sm truncate">
                 <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#009A44] flex-shrink-0" />
                 {config.enforcementLevel}
@@ -156,7 +163,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
         <div className="flex flex-col">
           <div className="bg-white border border-gray-200 rounded-xl p-2 sm:p-2.5 shadow-xs flex flex-col h-full justify-center">
             <h4 className="text-[0.625rem] sm:text-xs font-bold uppercase tracking-wider text-gray-600 mb-1 sm:mb-1.5">
-              You Believe
+              {t('results_you_believe_title', 'You Believe')}
             </h4>
             <ul className="space-y-1 sm:space-y-1.5 text-xs sm:text-sm text-gray-800 w-full px-0.5">
               {persona.keyPriorities.map((priority, idx) => (
@@ -177,7 +184,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
                 <MapPin className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#0081BC]" />
               </div>
               <h3 className="text-[0.625rem] sm:text-xs font-bold uppercase tracking-wider text-[#004B8D] truncate">
-                Edmonton Alignment
+                {t('results_edmonton_alignment_title', 'Edmonton Alignment')}
               </h3>
             </div>
             <p className="text-xs text-gray-700 leading-snug bg-gray-50 p-2 rounded-lg border border-gray-200 line-clamp-4 sm:line-clamp-none">
@@ -192,7 +199,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
       <div className="bg-white border border-gray-200 rounded-xl p-2 sm:p-2.5 shadow-xs flex-shrink-0">
         <div className="bg-[#193A5A]/5 border border-[#004B8D]/20 rounded-lg p-2 sm:p-2.5 flex flex-col">
           <label className="block text-xs sm:text-sm font-bold text-[#004B8D] mb-1 sm:mb-1.5 leading-tight">
-            Do you feel this represents your view on neighbourhood parking?
+            {t('results_feedback_prompt', 'Do you feel this represents your view on neighbourhood parking?')}
           </label>
           
           <div className="flex items-center justify-between gap-1 sm:gap-1.5 mb-1">
@@ -220,13 +227,13 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
             })}
           </div>
           <div className="flex justify-between text-[0.625rem] sm:text-xs text-gray-600 font-semibold px-0.5 mb-1.5">
-            <span>1 - Strongly Disagree</span>
-            <span>5 - Strongly Agree</span>
+            <span>{t('results_scale_1', '1 - Strongly Disagree')}</span>
+            <span>{t('results_scale_5', '5 - Strongly Agree')}</span>
           </div>
           
           <div className="flex items-center justify-between text-xs mb-1">
             <label htmlFor="why-feedback" className="font-bold text-gray-800 text-[0.6875rem] sm:text-xs">
-              Why or why not? (Optional)
+              {t('results_why_label', 'Why or why not? (Optional)')}
             </label>
             <span className={`text-[0.625rem] sm:text-xs font-semibold ${500 - feedback.length < 50 ? 'text-amber-700 font-bold' : 'text-gray-500'}`}>
               {500 - feedback.length} left
@@ -238,7 +245,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
             onChange={(e) => setFeedback(e.target.value.slice(0, 500))}
             maxLength={500}
             rows={1}
-            placeholder="Share your thoughts with City of Edmonton planners..."
+            placeholder={t('results_why_placeholder', 'Share your thoughts with City of Edmonton planners...')}
             className="w-full text-xs text-gray-800 p-1.5 sm:p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0081BC] focus:border-[#0081BC] resize-none bg-white leading-normal placeholder:text-gray-400 min-h-[36px] sm:min-h-[44px]"
           />
         </div>
@@ -255,14 +262,14 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
           className="px-3 sm:px-4 py-1.5 sm:py-2 border border-gray-300 bg-white hover:bg-gray-100 text-gray-700 rounded-lg text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition-colors cursor-pointer min-h-[42px] sm:min-h-[44px] active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#004B8D]"
         >
           <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 rotate-180" />
-          Back to Compass
+          {t('results_back_to_compass', 'Back to Compass')}
         </button>
 
         <div className="flex items-center gap-2">
           {submitted ? (
             <span className="text-xs font-bold text-[#007a36] flex items-center gap-1">
               <CheckCircle className="w-3.5 h-3.5 text-[#009A44]" />
-              Feedback Saved
+              {t('results_feedback_saved', 'Feedback Saved')}
             </span>
           ) : rating ? (
             <span className="text-[0.6875rem] sm:text-xs text-gray-500 hidden xs:inline">
@@ -279,7 +286,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
             }}
             className="px-4 sm:px-5 py-1.5 sm:py-2 bg-[#004B8D] hover:bg-[#003866] text-white rounded-lg text-xs sm:text-sm font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer min-h-[42px] sm:min-h-[44px] active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-[#004B8D]"
           >
-            <span>{submitted ? 'View Summary' : 'Finish & Share'}</span>
+            <span>{submitted ? t('results_view_summary', 'View Summary') : t('results_finish_share', 'Finish & Share')}</span>
             <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </button>
         </div>

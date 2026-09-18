@@ -2617,7 +2617,7 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
         )}
 
         {/* Top Right HUD: Audio + Gauge + Manual Controls Toggle */}
-        <div className="absolute top-1.5 right-1.5 sm:top-3 sm:right-3 z-20 flex flex-col items-stretch gap-1 sm:gap-2">
+        <div className="absolute top-1.5 right-1.5 sm:top-3 sm:right-3 z-20 flex flex-col items-end gap-1 sm:gap-2">
           <div className="flex items-center gap-0.5 sm:gap-1 bg-[#193A5A]/90 backdrop-blur-md border border-[#0081BC]/40 p-0.5 sm:p-1.5 rounded-md sm:rounded-lg shadow-lg">
             {/* Audio Toggle */}
             <button
@@ -2677,12 +2677,12 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
           {/* Compact Curbside Dial Gauge - with clear legible typography */}
           <div
             id="hud-gauge-widget"
-            className={`bg-[#193A5A]/90 backdrop-blur-md border border-[#0081BC]/40 p-1 sm:p-2 rounded-md sm:rounded-lg shadow-lg flex flex-col items-center transition-all landscape:max-sm:scale-50 landscape:max-sm:origin-top-right landscape:max-sm:-mb-[35px] ${
+            className={`bg-[#193A5A]/90 backdrop-blur-md border border-[#0081BC]/40 p-1 sm:p-2 rounded-md sm:rounded-lg shadow-lg flex flex-col items-center transition-all self-end origin-top-right scale-50 lg:scale-100 [@media(orientation:landscape)_and_(max-height:540px)]:scale-50 [@media(max-height:540px)]:scale-50 -mb-[42px] lg:mb-0 [@media(orientation:landscape)_and_(max-height:540px)]:-mb-[42px] [@media(max-height:540px)]:-mb-[42px] w-[130px] sm:w-[140px] ${
               curbsidePct >= 150 ? 'animate-bounce border-[#E8552D]' : ''
             }`}
           >
             <div className="flex items-center justify-between w-full text-[10px] sm:text-xs font-bold text-gray-200 mb-0.5 sm:mb-1 gap-1">
-              <span className="hidden xs:inline">Curbside</span>
+              <span>Curbside</span>
               <span className={`px-1.5 py-0.5 rounded border text-[10px] sm:text-xs font-bold ${getGaugeStatusColor()}`}>
                 {curbsidePct}%
               </span>
@@ -2846,7 +2846,7 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
         </div>
 
         {/* Zoom Controls (Bottom Left) */}
-        <div className="absolute bottom-2 left-2 sm:bottom-3 sm:left-3 z-10 flex flex-col gap-1 bg-black/60 backdrop-blur-sm p-1 rounded-lg border border-white/10">
+        <div className="absolute bottom-2 left-2 sm:bottom-3 sm:left-3 z-10 flex flex-col gap-1 bg-black/60 backdrop-blur-sm p-1 rounded-lg border border-white/10 origin-bottom-left scale-50 lg:scale-100 [@media(orientation:landscape)_and_(max-height:540px)]:scale-50 [@media(max-height:540px)]:scale-50 transition-transform">
           <button 
             type="button"
             onClick={() => setZoomScale(s => Math.min(4, s + 0.25))}
