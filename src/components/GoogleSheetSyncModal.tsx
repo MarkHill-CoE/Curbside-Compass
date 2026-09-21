@@ -7,7 +7,7 @@ interface GoogleSheetSyncModalProps {
   onClose: () => void;
 }
 
-export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({ isOpen, onClose }) => {
+const GoogleSheetSyncModalComponent: React.FC<GoogleSheetSyncModalProps> = ({ isOpen, onClose }) => {
   const {
     sheetUrl,
     setSheetUrl,
@@ -367,4 +367,6 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({ isOp
     </div>
   );
 };
+
+export const GoogleSheetSyncModal = React.memo(GoogleSheetSyncModalComponent);
 

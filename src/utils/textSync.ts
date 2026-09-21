@@ -294,8 +294,82 @@ export function extractTextMapFromRows(rows: string[][]): Record<string, string>
     }
   }
 
+  // 4. CPR-RPP-EE Curbside Compass Tool Personas "persona definitions" tab support:
+  // Detects if the sheet rows match persona names, and extracts Column I (index 8) or any column marked outcome
+  let outcomeColIdx = -1;
+  for (const row of rows.slice(0, 10)) {
+    for (let c = 0; c < row.length; c++) {
+      const cellNorm = normalizeHeader(row[c]);
+      if (cellNorm.includes('outcome') || cellNorm === 'column i') {
+        outcomeColIdx = c;
+        break;
+      }
+    }
+    if (outcomeColIdx !== -1) break;
+  }
+  if (outcomeColIdx === -1) {
+    const maxCols = Math.max(...rows.map(r => r.length), 0);
+    if (maxCols >= 9) {
+      outcomeColIdx = 8; // Column I is index 8 (A=0, B=1, C=2, D=3, E=4, F=5, G=6, H=7, I=8)
+    }
+  }
+
+  for (const row of rows) {
+    if (row.length === 0) continue;
+    let matchedPKey = '';
+    for (let c = 0; c < Math.min(row.length, 3); c++) {
+      const cleanName = (row[c] || '').trim().toLowerCase().replace(/[^a-z0-9 ]/g, '');
+      if (PERSONA_NAME_TO_KEY[cleanName]) {
+        matchedPKey = PERSONA_NAME_TO_KEY[cleanName];
+        break;
+      }
+    }
+
+    if (matchedPKey) {
+      let outcomeText = '';
+      if (outcomeColIdx !== -1 && row[outcomeColIdx]?.trim()) {
+        outcomeText = row[outcomeColIdx].trim();
+      } else if (row[8]?.trim()) {
+        outcomeText = row[8].trim();
+      }
+
+      if (outcomeText) {
+        map[`persona_${matchedPKey}_outcome`] = outcomeText;
+        map[`persona_${matchedPKey}_edmonton_fit`] = outcomeText;
+      }
+    }
+  }
+
   return map;
 }
+
+const PERSONA_NAME_TO_KEY: Record<string, string> = {
+  'block resident': 'block_resident',
+  'tidy resident': 'tidy_resident',
+  'easy resident': 'tidy_resident',
+  'picky parker': 'picky_parker',
+  'safety parker': 'safety_parker',
+  'safey parker': 'safety_parker',
+  'rule resident': 'rule_resident',
+  'balanced resident': 'balanced_resident',
+  'happy resident': 'balanced_resident',
+  'sensible parker': 'sensible_parker',
+  'simple parker': 'sensible_parker',
+  'fair parker': 'fair_parker',
+  'happy parker': 'fair_parker',
+  'easy neighbor': 'easy_neighbor',
+  'easy neighbour': 'easy_neighbor',
+  'chill neighbour': 'chill_neighbour',
+  'chill neighbor': 'chill_neighbour',
+  'simple driver': 'simple_driver',
+  'casual cruiser': 'casual_cruiser',
+  'happy neighbor': 'happy_neighbor',
+  'happy neighbour': 'happy_neighbor',
+  'zen neighbor': 'zen_neighbor',
+  'zen neighbour': 'zen_neighbor',
+  'happy driver': 'happy_driver',
+  'free wheeler': 'free_wheeler'
+};
 
 /**
  * Backward-compatible helper for parsing record objects.
@@ -401,7 +475,14 @@ export function applyTextsToData(texts: Record<string, string>): void {
     }
 
     const fitKey = `persona_${pKey}_edmonton_fit`;
-    if (texts[fitKey]) profile.edmontonPolicyFit = texts[fitKey];
+    const outcomeKey = `persona_${pKey}_outcome`;
+    if (texts[outcomeKey]) {
+      profile.outcome = texts[outcomeKey];
+      profile.edmontonPolicyFit = texts[outcomeKey];
+    } else if (texts[fitKey]) {
+      profile.outcome = texts[fitKey];
+      profile.edmontonPolicyFit = texts[fitKey];
+    }
   });
 }
 

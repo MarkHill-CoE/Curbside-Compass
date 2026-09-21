@@ -114,7 +114,7 @@ export const SURVEY_QUESTIONS: SurveyQuestion[] = [
         y: -3,
         hint: 'Since no fee is charged, more vehicles park on the street.',
         simEffects: {
-          visitorPassesPerHome: 0.5,
+          visitorPassesPerHome: 1.5,
           enforcementLevel: 'strict'
         }
       },
@@ -295,25 +295,37 @@ export const PERSONA_PROFILES: Record<string, PersonaResult> = {
     id: 'block-resident', quadrant: 'Q2', xRange: 'taxpayer', yRange: 'restrictive',
     title: 'Block Resident', subtitle: 'Strict Rules • General Taxation',
     description: 'You like strict parking rules to keep order. You prefer that everyone shares the costs through taxes, rather than just car owners.',
-    keyPriorities: ['Strict enforcement', 'General tax funding'], edmontonPolicyFit: 'Aligns with highly regulated mature neighbourhoods.', badgeColor: '#005087'
+    keyPriorities: ['Strict enforcement', 'General tax funding'],
+    edmontonPolicyFit: 'Aligns with highly regulated mature neighbourhoods.',
+    outcome: 'A strictly regulated residential permit zone where on-street parking is closely monitored, permits are capped per household, and municipal program costs are funded through general property taxes to preserve neighbourhood curb space.',
+    badgeColor: '#005087'
   },
   tidy_resident: {
     id: 'tidy-resident', quadrant: 'Q2', xRange: 'taxpayer', yRange: 'restrictive',
     title: 'Tidy Resident', subtitle: 'Some Rules • General Taxation',
     description: 'You like some parking rules to keep streets neat. You feel everyone should share the costs through taxes, not just drivers.',
-    keyPriorities: ['Clear guidelines', 'Shared costs'], edmontonPolicyFit: 'Aligns with standard residential parking guidelines.', badgeColor: '#005087'
+    keyPriorities: ['Clear guidelines', 'Shared costs'],
+    edmontonPolicyFit: 'Aligns with standard residential parking guidelines.',
+    outcome: 'Standard residential parking guidelines funded through municipal taxes with basic time restrictions during peak hours to keep streets orderly while sharing public costs community-wide.',
+    badgeColor: '#005087'
   },
   picky_parker: {
     id: 'picky-parker', quadrant: 'Q1', xRange: 'user', yRange: 'restrictive',
     title: 'Picky Parker', subtitle: 'Clear Rules • User-Fee',
     description: 'You like clear parking rules. You prefer that car owners pay for parking, rather than everyone sharing the costs through taxes.',
-    keyPriorities: ['Clear restrictions', 'User-pay model'], edmontonPolicyFit: 'Aligns with targeted permit zones.', badgeColor: '#0081BC'
+    keyPriorities: ['Clear restrictions', 'User-pay model'],
+    edmontonPolicyFit: 'Aligns with targeted permit zones.',
+    outcome: 'A targeted, user-funded permit system where on-street parking requires direct vehicle permits and user fees, ensuring local residents and visitors who use the curb cover the program\'s operating costs.',
+    badgeColor: '#0081BC'
   },
   safety_parker: {
     id: 'safety-parker', quadrant: 'Q1', xRange: 'user', yRange: 'restrictive',
     title: 'Safety Parker', subtitle: 'Strict Rules • Strong User-Fee',
     description: 'You like strict parking rules to keep streets safe. You strongly believe car owners should pay for their own parking, not everyone.',
-    keyPriorities: ['Strict safety enforcement', 'Direct user fees'], edmontonPolicyFit: 'Aligns with high-traffic pedestrian safety corridors.', badgeColor: '#0081BC'
+    keyPriorities: ['Strict safety enforcement', 'Direct user fees'],
+    edmontonPolicyFit: 'Aligns with high-traffic pedestrian safety corridors.',
+    outcome: 'Strictly enforced high-demand curbside corridors with rigorous user-fee permits, dedicated loading/safety zones, and active enforcement funded entirely by user fees and violation penalties.',
+    badgeColor: '#0081BC'
   },
 
   // Row 2: Clear / Fair Balance (-9 <= Y < 0)
@@ -321,25 +333,37 @@ export const PERSONA_PROFILES: Record<string, PersonaResult> = {
     id: 'rule-resident', quadrant: 'Q2', xRange: 'taxpayer', yRange: 'restrictive',
     title: 'Rule Resident', subtitle: 'Clear Rules • Shared Costs',
     description: 'You like clear parking rules. You think everyone should share the costs through taxes, not just car owners.',
-    keyPriorities: ['Defined zones', 'Tax-supported maintenance'], edmontonPolicyFit: 'Aligns with protected residential areas.', badgeColor: '#005087'
+    keyPriorities: ['Defined zones', 'Tax-supported maintenance'],
+    edmontonPolicyFit: 'Aligns with protected residential areas.',
+    outcome: 'Clearly defined residential parking zones with defined time limits and permit oversight, supported by municipal infrastructure maintenance to protect neighbourhood access.',
+    badgeColor: '#005087'
   },
   balanced_resident: {
     id: 'balanced-resident', quadrant: 'Q2', xRange: 'taxpayer', yRange: 'restrictive',
     title: 'Balanced Resident', subtitle: 'Fair Balance • Shared Costs',
     description: 'You like a fair balance of parking rules. You slightly prefer that everyone shares the costs through taxes, instead of just drivers.',
-    keyPriorities: ['Balanced access', 'Community funding'], edmontonPolicyFit: 'Aligns with flexible neighbourhood parking.', badgeColor: '#005087'
+    keyPriorities: ['Balanced access', 'Community funding'],
+    edmontonPolicyFit: 'Aligns with flexible neighbourhood parking.',
+    outcome: 'A balanced, flexible neighbourhood parking framework where standard rules prevent congestion, funded through broad community taxation to ensure equitable public access.',
+    badgeColor: '#005087'
   },
   sensible_parker: {
     id: 'sensible-parker', quadrant: 'Q1', xRange: 'user', yRange: 'restrictive',
     title: 'Sensible Parker', subtitle: 'Fair Balance • User-Fee',
     description: 'You like a fair balance of parking rules. You prefer that drivers pay for their own parking, instead of everyone sharing the costs.',
-    keyPriorities: ['Balanced enforcement', 'Driver-paid infrastructure'], edmontonPolicyFit: 'Aligns with hybrid paid-parking zones.', badgeColor: '#0081BC'
+    keyPriorities: ['Balanced enforcement', 'Driver-paid infrastructure'],
+    edmontonPolicyFit: 'Aligns with hybrid paid-parking zones.',
+    outcome: 'A hybrid user-pay system featuring paid hourly or digital daily visitor passes, ensuring that curbside maintenance and administrative costs are directly recovered from drivers.',
+    badgeColor: '#0081BC'
   },
   fair_parker: {
     id: 'fair-parker', quadrant: 'Q1', xRange: 'user', yRange: 'restrictive',
     title: 'Fair Parker', subtitle: 'Fair Balance • Strong User-Fee',
     description: 'You like a fair balance of parking rules. You strongly feel that drivers should pay for parking, instead of everyone.',
-    keyPriorities: ['Fair access', 'Full cost-recovery from drivers'], edmontonPolicyFit: 'Aligns with self-sustaining parking districts.', badgeColor: '#0081BC'
+    keyPriorities: ['Fair access', 'Full cost-recovery from drivers'],
+    edmontonPolicyFit: 'Aligns with self-sustaining parking districts.',
+    outcome: 'Self-sustaining parking districts where variable curb pricing and user permit fees balance stall turnover and fund local neighbourhood street amenities without general tax subsidies.',
+    badgeColor: '#0081BC'
   },
 
   // Row 3: Fewer / Few Rules (0 <= Y <= 9)
@@ -347,25 +371,37 @@ export const PERSONA_PROFILES: Record<string, PersonaResult> = {
     id: 'easy-neighbor', quadrant: 'Q3', xRange: 'taxpayer', yRange: 'open',
     title: 'Easy Neighbor', subtitle: 'Fewer Rules • Shared Costs',
     description: 'You like fewer parking rules to make things easy. You prefer that everyone shares the costs through taxes, rather than just drivers.',
-    keyPriorities: ['Easy access', 'Taxpayer funding'], edmontonPolicyFit: 'Aligns with open suburban parking.', badgeColor: '#009A44'
+    keyPriorities: ['Easy access', 'Taxpayer funding'],
+    edmontonPolicyFit: 'Aligns with open suburban parking.',
+    outcome: 'Open suburban curbside access with minimal restrictions, where street space is freely available on a first-come, first-served basis, funded through general city-wide taxation.',
+    badgeColor: '#009A44'
   },
   chill_neighbour: {
     id: 'chill-neighbour', quadrant: 'Q3', xRange: 'taxpayer', yRange: 'open',
     title: 'Chill Neighbour', subtitle: 'Few Rules • Shared Costs',
     description: 'You like having few parking rules. You believe everyone should share the costs through taxes, not just car owners.',
-    keyPriorities: ['Minimal restrictions', 'Publicly funded'], edmontonPolicyFit: 'Aligns with low-density residential guidelines.', badgeColor: '#009A44'
+    keyPriorities: ['Minimal restrictions', 'Publicly funded'],
+    edmontonPolicyFit: 'Aligns with low-density residential guidelines.',
+    outcome: 'Low-density residential streets with relaxed parking regulations, relying on informal neighbourhood courtesy and broad municipal funding rather than active enforcement.',
+    badgeColor: '#009A44'
   },
   simple_driver: {
     id: 'simple-driver', quadrant: 'Q4', xRange: 'user', yRange: 'open',
     title: 'Simple Driver', subtitle: 'Fewer Rules • User-Fee',
     description: 'You like fewer parking rules to keep life simple. You slightly prefer that car owners pay for parking, rather than everyone sharing the costs.',
-    keyPriorities: ['Simple access', 'Light user fees'], edmontonPolicyFit: 'Aligns with simplified flat-rate zones.', badgeColor: '#FFC72C'
+    keyPriorities: ['Simple access', 'Light user fees'],
+    edmontonPolicyFit: 'Aligns with simplified flat-rate zones.',
+    outcome: 'A simplified, open-access parking framework with modest flat-rate user fees during high-demand periods, keeping rules transparent and hassle-free for drivers.',
+    badgeColor: '#FFC72C'
   },
   casual_cruiser: {
     id: 'casual-cruiser', quadrant: 'Q4', xRange: 'user', yRange: 'open',
     title: 'Casual Cruiser', subtitle: 'Very Few Rules • Strong User-Fee',
     description: 'You like very few parking rules on our streets. You strongly believe car owners must pay for their own parking, not everyone.',
-    keyPriorities: ['Unrestricted access', 'Direct user payments'], edmontonPolicyFit: 'Aligns with unregulated paid public lots.', badgeColor: '#FFC72C'
+    keyPriorities: ['Unrestricted access', 'Direct user payments'],
+    edmontonPolicyFit: 'Aligns with unregulated paid public lots.',
+    outcome: 'Largely unregulated public curbside parking supported by targeted metered zones only in commercial areas, allowing drivers full mobility with pay-per-use convenience.',
+    badgeColor: '#FFC72C'
   },
 
   // Row 4: Almost No / Very Few Rules (Y > 9)
@@ -373,25 +409,37 @@ export const PERSONA_PROFILES: Record<string, PersonaResult> = {
     id: 'happy-neighbor', quadrant: 'Q3', xRange: 'taxpayer', yRange: 'open',
     title: 'Happy Neighbor', subtitle: 'Almost No Rules • Strong Taxpayer',
     description: 'You want almost no parking rules. You strongly believe everyone should share the costs through taxes, not just drivers.',
-    keyPriorities: ['Complete freedom', 'Fully public funding'], edmontonPolicyFit: 'Aligns with historically unregulated rural/suburban edges.', badgeColor: '#009A44'
+    keyPriorities: ['Complete freedom', 'Fully public funding'],
+    edmontonPolicyFit: 'Aligns with historically unregulated rural/suburban edges.',
+    outcome: 'Maximum parking freedom with no permit restrictions or time limits, treating the curbside as a universal public amenity fully supported by the city\'s general operating budget.',
+    badgeColor: '#009A44'
   },
   zen_neighbor: {
     id: 'zen-neighbor', quadrant: 'Q3', xRange: 'taxpayer', yRange: 'open',
     title: 'Zen Neighbor', subtitle: 'Very Few Rules • Shared Costs',
     description: 'You want very few parking rules for more freedom. You slightly prefer that everyone shares the costs through taxes, not just car owners.',
-    keyPriorities: ['High freedom', 'Shared municipal cost'], edmontonPolicyFit: 'Aligns with unenforced open streets.', badgeColor: '#009A44'
+    keyPriorities: ['High freedom', 'Shared municipal cost'],
+    edmontonPolicyFit: 'Aligns with unenforced open streets.',
+    outcome: 'Unrestricted open residential streets with no time limits or permit requirements, fostering high freedom and community neighborliness funded through municipal services.',
+    badgeColor: '#009A44'
   },
   happy_driver: {
     id: 'happy-driver', quadrant: 'Q4', xRange: 'user', yRange: 'open',
     title: 'Happy Driver', subtitle: 'Almost No Rules • User-Fee',
     description: 'You want almost no parking rules. You prefer that drivers pay for parking, rather than everyone sharing the costs through taxes.',
-    keyPriorities: ['No restrictions', 'Flat user fees'], edmontonPolicyFit: 'Aligns with open flat-rate parking regions.', badgeColor: '#FFC72C'
+    keyPriorities: ['No restrictions', 'Flat user fees'],
+    edmontonPolicyFit: 'Aligns with open flat-rate parking regions.',
+    outcome: 'Free-flowing, rule-free curbside access where drivers pay minimal, flat-rate parking charges only where high turnover is strictly necessary, without bureaucratic permit programs.',
+    badgeColor: '#FFC72C'
   },
   free_wheeler: {
     id: 'free-wheeler', quadrant: 'Q4', xRange: 'user', yRange: 'open',
     title: 'Free Wheeler', subtitle: 'Almost No Rules • Strong User-Fee',
     description: 'You want almost no parking rules so people are free. You strongly believe drivers should pay for their own parking, not everyone.',
-    keyPriorities: ['Absolute freedom', '100% user-funded'], edmontonPolicyFit: 'Aligns with private unregulated toll/parking models.', badgeColor: '#FFC72C'
+    keyPriorities: ['Absolute freedom', '100% user-funded'],
+    edmontonPolicyFit: 'Aligns with private unregulated toll/parking models.',
+    outcome: 'A fully deregulated curbside model with zero permit restrictions or city-imposed caps, where parking infrastructure is entirely market-driven and self-funded by motorists.',
+    badgeColor: '#FFC72C'
   }
 };
 

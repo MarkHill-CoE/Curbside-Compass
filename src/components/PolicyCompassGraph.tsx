@@ -8,7 +8,7 @@ interface PolicyCompassGraphProps {
   className?: string;
 }
 
-export const PolicyCompassGraph: React.FC<PolicyCompassGraphProps> = ({
+const PolicyCompassGraphComponent: React.FC<PolicyCompassGraphProps> = ({
   persona,
   totalX,
   totalY,
@@ -188,3 +188,5 @@ export const PolicyCompassGraph: React.FC<PolicyCompassGraphProps> = ({
     </div>
   );
 };
+
+export const PolicyCompassGraph = React.memo(PolicyCompassGraphComponent);

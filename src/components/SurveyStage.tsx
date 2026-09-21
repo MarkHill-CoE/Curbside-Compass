@@ -17,7 +17,7 @@ interface SurveyStageProps {
   totalY: number;
 }
 
-export const SurveyStage: React.FC<SurveyStageProps> = ({
+const SurveyStageComponent: React.FC<SurveyStageProps> = ({
   questions,
   currentStep,
   selectedAnswers,
@@ -299,3 +299,5 @@ export const SurveyStage: React.FC<SurveyStageProps> = ({
     </div>
   );
 };
+
+export const SurveyStage = React.memo(SurveyStageComponent);

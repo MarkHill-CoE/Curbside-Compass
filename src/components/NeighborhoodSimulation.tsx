@@ -21,7 +21,7 @@ interface NeighborhoodSimulationProps {
 
 const TOTAL_LEGAL_CURBSIDE_STALLS = 11;
 
-export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
+const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = ({
   config,
   onConfigChange,
   activeQuestionNumber,
@@ -36,6 +36,7 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
   const [showControls, setShowControls] = useState<boolean>(false);
   const [curbsideDemandCount, setCurbsideDemandCount] = useState<number>(0);
   const [curbsidePct, setCurbsidePct] = useState<number>(0);
+  const [circlingCarCount, setCirclingCarCount] = useState<number>(0);
   const [isRiotActive, setIsRiotActive] = useState<boolean>(false);
   const [isHarmonyActive, setIsHarmonyActive] = useState<boolean>(false);
   const [zoomScale, setZoomScale] = useState<number>(1.33);
@@ -367,27 +368,33 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
     const scale = 2.2;
     const blockLength = 380;
 
+    const ISO_X = scale * 0.8660254038;
+    const ISO_Y = scale * 0.5;
+    const ISO_Z = scale;
+
     function project(x: number, y: number, z: number) {
-      const rx = x * scale;
-      const ry = y * scale;
-      const rz = z * scale;
       return {
-        x: (rx - ry) * 0.866025 + offsetX,
-        y: (rx + ry) * 0.5 - rz + offsetY
+        x: (x - y) * ISO_X + offsetX,
+        y: (x + y) * ISO_Y - z * ISO_Z + offsetY
       };
     }
 
     function drawFlatRect(x: number, y: number, w: number, d: number, color: string, targetCtx: CanvasRenderingContext2D = ctx!) {
-      const p1 = project(x, y, 0);
-      const p2 = project(x + w, y, 0);
-      const p3 = project(x + w, y + d, 0);
-      const p4 = project(x, y + d, 0);
+      const p1_x = (x - y) * ISO_X + offsetX;
+      const p1_y = (x + y) * ISO_Y + offsetY;
+      const p2_x = (x + w - y) * ISO_X + offsetX;
+      const p2_y = (x + w + y) * ISO_Y + offsetY;
+      const p3_x = (x + w - (y + d)) * ISO_X + offsetX;
+      const p3_y = (x + w + y + d) * ISO_Y + offsetY;
+      const p4_x = (x - (y + d)) * ISO_X + offsetX;
+      const p4_y = (x + y + d) * ISO_Y + offsetY;
+
       targetCtx.fillStyle = color;
       targetCtx.beginPath();
-      targetCtx.moveTo(p1.x, p1.y);
-      targetCtx.lineTo(p2.x, p2.y);
-      targetCtx.lineTo(p3.x, p3.y);
-      targetCtx.lineTo(p4.x, p4.y);
+      targetCtx.moveTo(p1_x, p1_y);
+      targetCtx.lineTo(p2_x, p2_y);
+      targetCtx.lineTo(p3_x, p3_y);
+      targetCtx.lineTo(p4_x, p4_y);
       targetCtx.closePath();
       targetCtx.fill();
     }
@@ -404,13 +411,23 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
       rightColor: string,
       targetCtx: CanvasRenderingContext2D = ctx!
     ) {
-      const p2 = project(x + w, y, z);
-      const p3 = project(x + w, y + d, z);
-      const p4 = project(x, y + d, z);
-      const p1_top = project(x, y, z + h);
-      const p2_top = project(x + w, y, z + h);
-      const p3_top = project(x + w, y + d, z + h);
-      const p4_top = project(x, y + d, z + h);
+      const z_off = z * ISO_Z;
+      const zh_off = (z + h) * ISO_Z;
+
+      const p2_x = (x + w - y) * ISO_X + offsetX;
+      const p2_y = (x + w + y) * ISO_Y - z_off + offsetY;
+      const p2_top_y = (x + w + y) * ISO_Y - zh_off + offsetY;
+
+      const p3_x = (x + w - (y + d)) * ISO_X + offsetX;
+      const p3_y = (x + w + y + d) * ISO_Y - z_off + offsetY;
+      const p3_top_y = (x + w + y + d) * ISO_Y - zh_off + offsetY;
+
+      const p4_x = (x - (y + d)) * ISO_X + offsetX;
+      const p4_y = (x + y + d) * ISO_Y - z_off + offsetY;
+      const p4_top_y = (x + y + d) * ISO_Y - zh_off + offsetY;
+
+      const p1_top_x = (x - y) * ISO_X + offsetX;
+      const p1_top_y = (x + y) * ISO_Y - zh_off + offsetY;
 
       targetCtx.strokeStyle = 'rgba(0,0,0,0.15)';
       targetCtx.lineWidth = 0.8;
@@ -418,10 +435,10 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
       // Right Face
       targetCtx.fillStyle = rightColor;
       targetCtx.beginPath();
-      targetCtx.moveTo(p3.x, p3.y);
-      targetCtx.lineTo(p2.x, p2.y);
-      targetCtx.lineTo(p2_top.x, p2_top.y);
-      targetCtx.lineTo(p3_top.x, p3_top.y);
+      targetCtx.moveTo(p3_x, p3_y);
+      targetCtx.lineTo(p2_x, p2_y);
+      targetCtx.lineTo(p2_x, p2_top_y);
+      targetCtx.lineTo(p3_x, p3_top_y);
       targetCtx.closePath();
       targetCtx.fill();
       targetCtx.stroke();
@@ -429,10 +446,10 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
       // Left Face
       targetCtx.fillStyle = leftColor;
       targetCtx.beginPath();
-      targetCtx.moveTo(p3.x, p3.y);
-      targetCtx.lineTo(p4.x, p4.y);
-      targetCtx.lineTo(p4_top.x, p4_top.y);
-      targetCtx.lineTo(p3_top.x, p3_top.y);
+      targetCtx.moveTo(p3_x, p3_y);
+      targetCtx.lineTo(p4_x, p4_y);
+      targetCtx.lineTo(p4_x, p4_top_y);
+      targetCtx.lineTo(p3_x, p3_top_y);
       targetCtx.closePath();
       targetCtx.fill();
       targetCtx.stroke();
@@ -440,10 +457,10 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
       // Top Face
       targetCtx.fillStyle = topColor;
       targetCtx.beginPath();
-      targetCtx.moveTo(p1_top.x, p1_top.y);
-      targetCtx.lineTo(p2_top.x, p2_top.y);
-      targetCtx.lineTo(p3_top.x, p3_top.y);
-      targetCtx.lineTo(p4_top.x, p4_top.y);
+      targetCtx.moveTo(p1_top_x, p1_top_y);
+      targetCtx.lineTo(p2_x, p2_top_y);
+      targetCtx.lineTo(p3_x, p3_top_y);
+      targetCtx.lineTo(p4_x, p4_top_y);
       targetCtx.closePath();
       targetCtx.fill();
       targetCtx.stroke();
@@ -460,29 +477,43 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
       gableColor: string,
       targetCtx: CanvasRenderingContext2D = ctx!
     ) {
-      const p2_top = project(x + w, y, z);
-      const p3_top = project(x + w, y + d, z);
-      const p4_top = project(x, y + d, z);
-      const r1 = project(x, y + d / 2, z + h);
-      const r2 = project(x + w, y + d / 2, z + h);
+      const z_off = z * ISO_Z;
+      const zh_off = (z + h) * ISO_Z;
+      const midY = y + d * 0.5;
+
+      const p2_top_x = (x + w - y) * ISO_X + offsetX;
+      const p2_top_y = (x + w + y) * ISO_Y - z_off + offsetY;
+
+      const p3_top_x = (x + w - (y + d)) * ISO_X + offsetX;
+      const p3_top_y = (x + w + y + d) * ISO_Y - z_off + offsetY;
+
+      const p4_top_x = (x - (y + d)) * ISO_X + offsetX;
+      const p4_top_y = (x + y + d) * ISO_Y - z_off + offsetY;
+
+      const r1_x = (x - midY) * ISO_X + offsetX;
+      const r1_y = (x + midY) * ISO_Y - zh_off + offsetY;
+
+      const r2_x = (x + w - midY) * ISO_X + offsetX;
+      const r2_y = (x + w + midY) * ISO_Y - zh_off + offsetY;
+
       targetCtx.strokeStyle = 'rgba(0,0,0,0.2)';
       targetCtx.lineWidth = 0.8;
 
       targetCtx.fillStyle = gableColor;
       targetCtx.beginPath();
-      targetCtx.moveTo(p3_top.x, p3_top.y);
-      targetCtx.lineTo(p2_top.x, p2_top.y);
-      targetCtx.lineTo(r2.x, r2.y);
+      targetCtx.moveTo(p3_top_x, p3_top_y);
+      targetCtx.lineTo(p2_top_x, p2_top_y);
+      targetCtx.lineTo(r2_x, r2_y);
       targetCtx.closePath();
       targetCtx.fill();
       targetCtx.stroke();
 
       targetCtx.fillStyle = roofColor;
       targetCtx.beginPath();
-      targetCtx.moveTo(p4_top.x, p4_top.y);
-      targetCtx.lineTo(p3_top.x, p3_top.y);
-      targetCtx.lineTo(r2.x, r2.y);
-      targetCtx.lineTo(r1.x, r1.y);
+      targetCtx.moveTo(p4_top_x, p4_top_y);
+      targetCtx.lineTo(p3_top_x, p3_top_y);
+      targetCtx.lineTo(r2_x, r2_y);
+      targetCtx.lineTo(r1_x, r1_y);
       targetCtx.closePath();
       targetCtx.fill();
       targetCtx.stroke();
@@ -912,6 +943,75 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
       ctx!.restore();
     }
 
+    function drawCirclingBubble(x: number, y: number, z: number, lap: number = 1, isFull: boolean = false) {
+      const pos = project(x + 6, y, z + 9);
+      ctx!.save();
+
+      const label = isFull && lap > 1 ? `Circling #${lap}` : 'Looking for P';
+      ctx!.font = 'bold 8.5px system-ui, -apple-system, sans-serif';
+      const textMetrics = ctx!.measureText(label);
+      const bubbleW = textMetrics.width + 16;
+      const bubbleH = 15;
+      const bubbleX = pos.x - bubbleW / 2;
+      const bubbleY = pos.y - bubbleH - 2;
+
+      // Soft shadow
+      ctx!.fillStyle = 'rgba(0, 0, 0, 0.25)';
+      ctx!.beginPath();
+      if (ctx!.roundRect) {
+        ctx!.roundRect(bubbleX + 1, bubbleY + 1, bubbleW, bubbleH, 4);
+      } else {
+        ctx!.rect(bubbleX + 1, bubbleY + 1, bubbleW, bubbleH);
+      }
+      ctx!.fill();
+
+      // Background Bubble
+      ctx!.fillStyle = '#FFFFFF';
+      ctx!.strokeStyle = isFull ? '#E8552D' : '#0081BC';
+      ctx!.lineWidth = 1.2;
+      ctx!.beginPath();
+      if (ctx!.roundRect) {
+        ctx!.roundRect(bubbleX, bubbleY, bubbleW, bubbleH, 4);
+      } else {
+        ctx!.rect(bubbleX, bubbleY, bubbleW, bubbleH);
+      }
+      ctx!.fill();
+      ctx!.stroke();
+
+      // Pointer triangle pointing down to vehicle roof
+      ctx!.beginPath();
+      ctx!.moveTo(pos.x - 3, bubbleY + bubbleH);
+      ctx!.lineTo(pos.x, bubbleY + bubbleH + 4);
+      ctx!.lineTo(pos.x + 3, bubbleY + bubbleH);
+      ctx!.fillStyle = '#FFFFFF';
+      ctx!.fill();
+      ctx!.beginPath();
+      ctx!.moveTo(pos.x - 3, bubbleY + bubbleH);
+      ctx!.lineTo(pos.x, bubbleY + bubbleH + 4);
+      ctx!.lineTo(pos.x + 3, bubbleY + bubbleH);
+      ctx!.strokeStyle = isFull ? '#E8552D' : '#0081BC';
+      ctx!.lineWidth = 1.2;
+      ctx!.stroke();
+
+      // Mini magnifying glass icon
+      ctx!.strokeStyle = isFull ? '#E8552D' : '#0081BC';
+      ctx!.lineWidth = 1.2;
+      ctx!.beginPath();
+      ctx!.arc(bubbleX + 6, bubbleY + 7.5, 2.5, 0, Math.PI * 2);
+      ctx!.stroke();
+      ctx!.beginPath();
+      ctx!.moveTo(bubbleX + 8, bubbleY + 9.5);
+      ctx!.lineTo(bubbleX + 10.5, bubbleY + 12);
+      ctx!.stroke();
+
+      // Text label
+      ctx!.fillStyle = '#11283F';
+      ctx!.textBaseline = 'middle';
+      ctx!.fillText(label, bubbleX + 13, bubbleY + 8);
+
+      ctx!.restore();
+    }
+
     function drawSpeechBubble(x: number, y: number, z: number) {
       const pos = project(x + 1, y - 1, z + 6);
       ctx!.save();
@@ -1297,14 +1397,33 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
       isStuckBehindVan?: boolean;
       isBurning?: boolean;
       isEmergency?: boolean;
+      isCircling?: boolean;
+      circlingLap?: number;
+      searchingBubbleTimer?: number;
+      searchScanTimer?: number;
+      shouldRetire?: boolean;
     }
 
-    const activeVehicles: RoadObstacle[] = [
-      { type: 'sedan', x: -30, y: 110, baseY: 110, targetY: 110, w: 15, d: 7, baseSpeed: BASE_CAR_SPEED, speed: BASE_CAR_SPEED, color: edmontonPalette[0].hex, stuckTimer: 0, honkCooldown: 0, honkBubbleTimer: 0 },
-      { type: 'suv', x: -160, y: 124, baseY: 124, targetY: 124, w: 16, d: 7.5, baseSpeed: 0.9, speed: 0.9, color: edmontonPalette[3].hex, stuckTimer: 0, honkCooldown: 0, honkBubbleTimer: 0 },
-      { type: 'pickup', x: -280, y: 110, baseY: 110, targetY: 110, w: 18, d: 7.5, baseSpeed: 1.3, speed: 1.3, color: edmontonPalette[2].hex, stuckTimer: 0, honkCooldown: 0, honkBubbleTimer: 0 },
-      { type: 'boxTruck', x: -420, y: 124, baseY: 124, targetY: 124, w: 24, d: 8.5, baseSpeed: 0.75, speed: 0.75, color: '', stuckTimer: 0, honkCooldown: 0, honkBubbleTimer: 0 }
+    // Baseline through-traffic vehicles (constant through flow across the neighborhood)
+    const throughVehicles: RoadObstacle[] = [
+      { type: 'sedan', x: -40, y: 110, baseY: 110, targetY: 110, w: 15, d: 7, baseSpeed: 1.25, speed: 1.25, color: edmontonPalette[0].hex, stuckTimer: 0, honkCooldown: 0, honkBubbleTimer: 0, isCircling: false },
+      { type: 'boxTruck', x: -360, y: 124, baseY: 124, targetY: 124, w: 24, d: 8.5, baseSpeed: 0.85, speed: 0.85, color: '', stuckTimer: 0, honkCooldown: 0, honkBubbleTimer: 0, isCircling: false }
     ];
+
+    // Cruising / Circling vehicle pool: activates as street parking fills up, creating realistic traffic searching for spots
+    const cruisingVehiclePool: RoadObstacle[] = [
+      { type: 'suv', x: -140, y: 124, baseY: 124, targetY: 124, w: 16, d: 7.5, baseSpeed: 0.72, speed: 0.72, color: edmontonPalette[3].hex, stuckTimer: 0, honkCooldown: 0, honkBubbleTimer: 0, isCircling: true, circlingLap: 1, searchingBubbleTimer: 0, searchScanTimer: 0 },
+      { type: 'pickup', x: -240, y: 110, baseY: 110, targetY: 110, w: 18, d: 7.5, baseSpeed: 0.75, speed: 0.75, color: edmontonPalette[2].hex, stuckTimer: 0, honkCooldown: 0, honkBubbleTimer: 0, isCircling: true, circlingLap: 1, searchingBubbleTimer: 0, searchScanTimer: 0 },
+      { type: 'sedan', x: -340, y: 124, baseY: 124, targetY: 124, w: 15, d: 7, baseSpeed: 0.68, speed: 0.68, color: '#C0392B', stuckTimer: 0, honkCooldown: 0, honkBubbleTimer: 0, isCircling: true, circlingLap: 1, searchingBubbleTimer: 0, searchScanTimer: 0 },
+      { type: 'suv', x: -440, y: 110, baseY: 110, targetY: 110, w: 16, d: 7.5, baseSpeed: 0.7, speed: 0.7, color: '#27AE60', stuckTimer: 0, honkCooldown: 0, honkBubbleTimer: 0, isCircling: true, circlingLap: 1, searchingBubbleTimer: 0, searchScanTimer: 0 },
+      { type: 'sedan', x: -540, y: 124, baseY: 124, targetY: 124, w: 15, d: 7, baseSpeed: 0.65, speed: 0.65, color: '#8E44AD', stuckTimer: 0, honkCooldown: 0, honkBubbleTimer: 0, isCircling: true, circlingLap: 1, searchingBubbleTimer: 0, searchScanTimer: 0 }
+    ];
+
+    const activeVehicles: RoadObstacle[] = [...throughVehicles];
+    let lastReportedCircling = -1;
+    let lastReportedDemand = -1;
+    let lastReportedPct = -1;
+    let lastDrawnGaugeCars = -1;
     let emergencyVehicles: RoadObstacle[] = [];
 
     interface DeliveryVan extends RoadObstacle {
@@ -1384,6 +1503,8 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
 
     function drawGauge(curbsideCars: number) {
       if (!gaugeCtx || !gaugeCanvas) return;
+      if (curbsideCars === lastDrawnGaugeCars) return;
+      lastDrawnGaugeCars = curbsideCars;
       gaugeCtx.clearRect(0, 0, gaugeCanvas.width, gaugeCanvas.height);
 
       const cx = gaugeCanvas.width / 2;
@@ -1461,27 +1582,29 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
     }
 
     function updateAndDrawParticles() {
-      for (let i = particles.length - 1; i >= 0; i--) {
+      if (particles.length === 0) return;
+      let writeIdx = 0;
+      for (let i = 0; i < particles.length; i++) {
         const p = particles[i];
         p.x += p.vx;
         p.y += p.vy;
         p.z += p.vz;
         p.life -= 0.03;
 
-        if (p.life <= 0) {
-          particles.splice(i, 1);
-          continue;
-        }
+        if (p.life > 0) {
+          const posX = (p.x - p.y) * ISO_X + offsetX;
+          const posY = (p.x + p.y) * ISO_Y - p.z * ISO_Z + offsetY;
+          ctx!.fillStyle = p.color;
+          ctx!.globalAlpha = Math.max(0, p.life);
+          ctx!.beginPath();
+          ctx!.arc(posX, posY, 2.5 * p.life + 1, 0, Math.PI * 2);
+          ctx!.fill();
 
-        const pos = project(p.x, p.y, p.z);
-        ctx!.save();
-        ctx!.fillStyle = p.color;
-        ctx!.globalAlpha = p.life;
-        ctx!.beginPath();
-        ctx!.arc(pos.x, pos.y, 2.5 * p.life + 1, 0, Math.PI * 2);
-        ctx!.fill();
-        ctx!.restore();
+          particles[writeIdx++] = p;
+        }
       }
+      particles.length = writeIdx;
+      ctx!.globalAlpha = 1.0;
     }
 
     function updateVanState(van: DeliveryVan, totalParked: number, activeRoadProtesters: { x: number; y: number }[] = []) {
@@ -1693,9 +1816,76 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
       const curbsideDemand = Math.max(0, totalParkedCars - totalDrivewaySpots);
       const gaugePercent = (curbsideDemand / TOTAL_LEGAL_CURBSIDE_STALLS) * 100;
 
-      setCurbsideDemandCount(curbsideDemand);
-      setCurbsidePct(Math.round(gaugePercent));
+      if (curbsideDemand !== lastReportedDemand) {
+        lastReportedDemand = curbsideDemand;
+        setCurbsideDemandCount(curbsideDemand);
+      }
+      const roundedPct = Math.round(gaugePercent);
+      if (roundedPct !== lastReportedPct) {
+        lastReportedPct = roundedPct;
+        setCurbsidePct(roundedPct);
+      }
       drawGauge(curbsideDemand);
+
+      // Cruising Traffic Management: As parking fills up on the street, traffic increases as more cars circle looking for parking
+      let targetCirclingCount = 0;
+      if (curbsideDemand >= 12) {
+        targetCirclingCount = 5; // Severely saturated (over capacity) - 5 cars circling
+      } else if (curbsideDemand >= 10) {
+        targetCirclingCount = 4; // 90-100% full (10-11 stalls taken) - 4 cars circling
+      } else if (curbsideDemand >= 7) {
+        targetCirclingCount = 3; // 60-80% full (7-9 stalls taken) - 3 cars circling
+      } else if (curbsideDemand >= 4) {
+        targetCirclingCount = 2; // 35-55% full (4-6 stalls taken) - 2 cars circling
+      } else if (curbsideDemand >= 2) {
+        targetCirclingCount = 1; // 18-30% full (2-3 stalls taken) - 1 car circling
+      }
+
+      if (configRef.current.cruisingTrafficLevel === 'high') {
+        targetCirclingCount = Math.min(5, targetCirclingCount + 1);
+      } else if (configRef.current.cruisingTrafficLevel === 'low') {
+        targetCirclingCount = Math.max(0, targetCirclingCount - 1);
+      }
+
+      // Count currently active cruising vehicles
+      const currentCirclingVehicles = activeVehicles.filter(v => v.isCircling && !v.shouldRetire);
+      const currentCirclingCount = currentCirclingVehicles.length;
+
+      if (currentCirclingCount < targetCirclingCount) {
+        const candidate = cruisingVehiclePool.find(p => !activeVehicles.includes(p));
+        if (candidate) {
+          let spawnX = -80 - Math.random() * 50;
+          for (const v of activeVehicles) {
+            if (Math.abs(v.y - (candidate.baseY || 110)) < 8 && v.x < 0 && v.x > spawnX - candidate.w - 18) {
+              spawnX = Math.min(spawnX, v.x - candidate.w - 18);
+            }
+          }
+          candidate.x = spawnX;
+          candidate.y = candidate.baseY || 110;
+          candidate.targetY = candidate.baseY || 110;
+          candidate.speed = candidate.baseSpeed || 0.7;
+          candidate.circlingLap = 1;
+          candidate.searchingBubbleTimer = 75;
+          candidate.searchScanTimer = Math.floor(Math.random() * 100);
+          candidate.shouldRetire = false;
+          candidate.isBurning = false;
+          activeVehicles.push(candidate);
+        }
+      } else if (currentCirclingCount > targetCirclingCount) {
+        let excess = currentCirclingCount - targetCirclingCount;
+        for (let i = activeVehicles.length - 1; i >= 0 && excess > 0; i--) {
+          const v = activeVehicles[i];
+          if (v.isCircling && !v.shouldRetire) {
+            v.shouldRetire = true;
+            excess--;
+          }
+        }
+      }
+
+      if (currentCirclingCount !== lastReportedCircling) {
+        lastReportedCircling = currentCirclingCount;
+        setCirclingCarCount(currentCirclingCount);
+      }
 
       if (alarmCooldown > 0) {
         alarmCooldown -= 1 / 60;
@@ -1749,7 +1939,7 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
       if (gaugePercent > 150 && isAfterQ8) {
 
         overloadTimer += 1 / 60;
-        if (overloadTimer >= 4.0 && !isRioting) {
+        if (overloadTimer >= 1.5 && !isRioting) {
           isRioting = true;
           setIsRiotActive(true);
           // Ignite a car strictly on the road
@@ -1760,7 +1950,7 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
             activeVehicles[0].speed = 0;
           }
         }
-        if (overloadTimer >= 7.0 && roadCarRenderIndices.length > 2) {
+        if (overloadTimer >= 4.5 && roadCarRenderIndices.length > 2) {
           flippedCars.add(roadCarRenderIndices[1]);
         }
         if (alarmCooldown <= 0 && soundEnabledRef.current) {
@@ -1790,7 +1980,7 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
 
       if (isGoodPlanning) {
         harmonyTimer += 1 / 60;
-        if (harmonyTimer >= 4.0 && !isHarmony) {
+        if (harmonyTimer >= 1.5 && !isHarmony) {
           isHarmony = true;
           setIsHarmonyActive(true);
         }
@@ -1850,7 +2040,16 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
       ctx!.drawImage(bgGroundCanvas, 0, 0);
 
       // Bystanders on sidewalk: when cars start burning, bystanders gather on the sidewalk while protesters block the road
-      const burningRoadLocations = activeVehicles.filter(v => v.isBurning).map(v => v.x).concat(Array.from(flippedCars).map(idx => houseCarAssignments[activeIndices[idx]]?.x || 160));
+      const burningRoadLocations: number[] = [];
+      if (hasBurningCars) {
+        for (let i = 0; i < activeVehicles.length; i++) {
+          if (activeVehicles[i].isBurning) burningRoadLocations.push(activeVehicles[i].x);
+        }
+        for (const idx of flippedCars) {
+          const car = houseCarAssignments[activeIndices[idx]];
+          if (car) burningRoadLocations.push(car.x);
+        }
+      }
       const activePedCount = hasBurningCars
         ? Math.min(pedestrians.length, Math.max(14, Math.floor(6 + totalParkedCars * 0.55)))
         : Math.min(pedestrians.length, Math.floor(2 + totalParkedCars * 0.45));
@@ -2031,7 +2230,26 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
           A.y = targetLane;
         }
 
-        A.speed = isPullingOver ? 0.3 : (A.baseSpeed || BASE_CAR_SPEED); // Slow down significantly when pulling over
+        if (A.isCircling) {
+          A.searchScanTimer = (A.searchScanTimer || 0) + 1;
+          if (A.x > 25 && A.x < 320) {
+            // Every few seconds while passing street stalls, slow down to inspect open spots
+            if (A.searchScanTimer > 280) {
+              A.searchScanTimer = 0;
+              A.searchingBubbleTimer = 75;
+            }
+          }
+          if ((A.searchingBubbleTimer || 0) > 0) {
+            A.searchingBubbleTimer!--;
+          }
+        }
+
+        const isScanningSlowdown = A.isCircling && (A.searchingBubbleTimer || 0) > 20;
+        const assignedBaseSpeed = isScanningSlowdown
+          ? Math.max(0.38, (A.baseSpeed || 0.7) * 0.65)
+          : (A.baseSpeed || BASE_CAR_SPEED);
+
+        A.speed = isPullingOver ? 0.3 : assignedBaseSpeed; // Slow down significantly when pulling over or scanning for parking
         let targetX = A.x + A.speed;
         let blockingObstacle: RoadObstacle | null = null;
 
@@ -2101,6 +2319,25 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
             A.x = -800;
             continue;
           }
+
+          // If vehicle was marked to retire because street parking cleared up, exit from active list
+          if (A.isCircling && A.shouldRetire) {
+            A.shouldRetire = false;
+            const idx = activeVehicles.indexOf(A);
+            if (idx !== -1) {
+              activeVehicles.splice(idx, 1);
+            }
+            continue;
+          }
+
+          // If circling vehicle reached end of block without finding a spot, circle the block!
+          if (A.isCircling) {
+            A.circlingLap = (A.circlingLap || 1) + 1;
+            A.searchingBubbleTimer = 85; // Announce lap
+            // Switch lane between laps to search both sides of the street
+            A.baseY = A.baseY === 110 ? 124 : 110;
+          }
+
           let respawnX = -60;
           for (let j = staticObstacleCount; j < roadObstacleCount; j++) {
             const B = allRoadObstacles[j];
@@ -2270,7 +2507,16 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
       for (let i = 0; i < activeVehicles.length; i++) {
         const v = activeVehicles[i];
         const isVBurning = Boolean(v.isBurning);
-        renderQueue.push({ ...v, color: v.color || '#0081BC', isFlipped: isVBurning, sortY: v.y, honkBubbleTimer: v.honkBubbleTimer });
+        renderQueue.push({ 
+          ...v, 
+          color: v.color || '#0081BC', 
+          isFlipped: isVBurning, 
+          sortY: v.y, 
+          honkBubbleTimer: v.honkBubbleTimer,
+          isCircling: v.isCircling,
+          circlingLap: v.circlingLap,
+          searchingBubbleTimer: v.searchingBubbleTimer
+        });
       }
 
       // Sort by Y-coordinate for proper isometric depth rendering (objects lower on screen drawn last)
@@ -2285,6 +2531,8 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
           if (Math.random() < 0.4) spawnFireParticle(item.x + 12, item.y + 3, 3);
         } else if (item.honkBubbleTimer && item.honkBubbleTimer > 0) {
           drawHonkBubble(item.x, item.y, 0);
+        } else if (item.isCircling && item.searchingBubbleTimer && item.searchingBubbleTimer > 0) {
+          drawCirclingBubble(item.x, item.y, 0, item.circlingLap || 1, curbsideDemand >= TOTAL_LEGAL_CURBSIDE_STALLS);
         }
       }
 
@@ -2461,6 +2709,19 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
 
     return () => {
       cancelAnimationFrame(animFrameId);
+      if (window.__riotAudio) {
+        try {
+          window.__riotAudio.pause();
+          window.__riotAudio.currentTime = 0;
+        } catch {
+          // Ignore
+        }
+      }
+      window.__riotAudioPending = false;
+      if (audioAlertTimerRef.current) {
+        clearTimeout(audioAlertTimerRef.current);
+        audioAlertTimerRef.current = null;
+      }
     };
   }, [playHonk, playCriticalAlarm]);
 
@@ -2691,6 +2952,27 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
             <span className="text-[10px] sm:text-xs font-semibold text-gray-200 mt-0.5 whitespace-nowrap">
               {curbsideDemandCount}/{TOTAL_LEGAL_CURBSIDE_STALLS} Cars
             </span>
+
+            {/* Circling / Cruising Traffic Indicator */}
+            {circlingCarCount > 0 ? (
+              <div 
+                id="hud-circling-traffic-indicator"
+                className="w-full mt-1 pt-1 border-t border-white/10 flex items-center justify-center gap-1 text-[9px] sm:text-[10px] font-semibold text-amber-300"
+                title={`${circlingCarCount} vehicles circling looking for parking as curbside fills up`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse inline-block" />
+                <span className="truncate">{circlingCarCount} {circlingCarCount === 1 ? 'car' : 'cars'} circling</span>
+              </div>
+            ) : (
+              <div 
+                id="hud-circling-traffic-indicator"
+                className="w-full mt-1 pt-1 border-t border-white/10 flex items-center justify-center gap-1 text-[9px] sm:text-[10px] font-medium text-emerald-300/90"
+                title="Curbside parking open - through traffic flowing smoothly"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
+                <span className="truncate">Traffic flowing</span>
+              </div>
+            )}
           </div>
 
           {/* Manual Sliders Overlay Drawer */}
@@ -2807,6 +3089,14 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
                 />
               </div>
 
+              {/* Circling / Cruising Traffic Status */}
+              <div className="flex justify-between items-center text-xs py-1.5 border-t border-white/10">
+                <span className="text-gray-300">Circling Traffic</span>
+                <span className={`font-bold ${circlingCarCount > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                  {circlingCarCount > 0 ? `${circlingCarCount} Circling for P` : 'Smooth Flow'}
+                </span>
+              </div>
+
               <div className="pt-1 flex items-center justify-between text-[10px] text-gray-400">
                 <span className="flex items-center gap-1">
                   <ShieldCheck className="w-3 h-3 text-[#0081BC]" />
@@ -2881,3 +3171,5 @@ export const NeighborhoodSimulation: React.FC<NeighborhoodSimulationProps> = ({
     </div>
   );
 };
+
+export const NeighborhoodSimulation = React.memo(NeighborhoodSimulationComponent);

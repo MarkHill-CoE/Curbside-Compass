@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { NeighborhoodSimulation } from './components/NeighborhoodSimulation';
 import { SurveyStage } from './components/SurveyStage';
 import { ResultsView } from './components/ResultsView';
@@ -145,11 +145,10 @@ export default function App() {
   }, [totalX, totalY]);
 
   // Handle option selection
-  const handleSelectOption = (questionId: string, optionId: string) => {
+  const handleSelectOption = useCallback((questionId: string, optionId: string) => {
     setShowValidationError(false);
     setValidationErrorMsg(null);
-    const newAnswers = { ...selectedAnswers, [questionId]: optionId };
-    setSelectedAnswers(newAnswers);
+    setSelectedAnswers((prev) => ({ ...prev, [questionId]: optionId }));
 
     const question = SURVEY_QUESTIONS.find((q) => q.id === questionId);
     if (question?.type === 'text' || questionId === 'q9') {
@@ -176,10 +175,10 @@ export default function App() {
         setPolicyNote('Simulation updated based on your selection.');
       }
     }
-  };
+  }, []);
 
   // Step Navigation
-  const handleNavigate = (direction: number) => {
+  const handleNavigate = useCallback((direction: number) => {
     if (direction === 1) {
       const currentQuestion = SURVEY_QUESTIONS[currentStep];
       const answer = selectedAnswers[currentQuestion.id];
@@ -212,10 +211,10 @@ export default function App() {
         setCurrentStep((prev) => prev - 1);
       }
     }
-  };
+  }, [currentStep, selectedAnswers]);
 
   // Reset / Retake
-  const handleRetake = () => {
+  const handleRetake = useCallback(() => {
     triggerFeedback('button');
     setSelectedAnswers({});
     setCurrentStep(0);
@@ -224,7 +223,11 @@ export default function App() {
     setValidationErrorMsg(null);
     setSimConfig(INITIAL_SIM_CONFIG);
     setPolicyNote('Simulation reset to baseline configuration.');
-  };
+  }, []);
+
+  const handleConfigChange = useCallback((updated: Partial<SimulationConfig>) => {
+    setSimConfig((prev) => ({ ...prev, ...updated }));
+  }, []);
 
   return (
     <div className="flex flex-col h-screen w-screen bg-[#f4f6f8] text-gray-800 overflow-hidden font-sans">
@@ -333,7 +336,7 @@ export default function App() {
         >
           <NeighborhoodSimulation
             config={simConfig}
-            onConfigChange={(updated) => setSimConfig((prev) => ({ ...prev, ...updated }))}
+            onConfigChange={handleConfigChange}
             activeQuestionNumber={currentStep + 1}
             policyNote={policyNote}
             isCompleted={isCompleted}

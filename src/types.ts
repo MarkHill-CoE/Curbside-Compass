@@ -38,6 +38,7 @@ export interface PersonaResult {
   yRange: 'restrictive' | 'open';
   keyPriorities: string[];
   edmontonPolicyFit: string;
+  outcome: string;
   badgeColor: string;
 }
 

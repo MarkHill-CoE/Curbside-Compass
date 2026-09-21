@@ -27,7 +27,7 @@ interface ThankYouViewProps {
   onRetake?: () => void;
 }
 
-export const ThankYouView: React.FC<ThankYouViewProps> = ({
+const ThankYouViewComponent: React.FC<ThankYouViewProps> = ({
   persona,
   config,
   onViewResults,
@@ -378,3 +378,5 @@ export const ThankYouView: React.FC<ThankYouViewProps> = ({
     </div>
   );
 };
+
+export const ThankYouView = React.memo(ThankYouViewComponent);

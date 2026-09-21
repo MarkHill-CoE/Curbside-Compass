@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { PersonaResult, SimulationConfig } from '../types';
-import { Award, MapPin, CheckCircle, Shield, ChevronRight, Compass, Share2 } from 'lucide-react';
+import { Award, MapPin, Target, CheckCircle, Shield, ChevronRight, Compass, Share2 } from 'lucide-react';
 import { ThankYouView } from './ThankYouView';
 import { PolicyCompassGraph } from './PolicyCompassGraph';
 import { triggerFeedback } from '../utils/feedback';
@@ -14,7 +14,7 @@ interface ResultsViewProps {
   onRetake?: () => void;
 }
 
-export const ResultsView: React.FC<ResultsViewProps> = ({
+const ResultsViewComponent: React.FC<ResultsViewProps> = ({
   persona,
   totalX,
   totalY,
@@ -26,6 +26,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
   const [feedback, setFeedback] = useState<string>('');
   const [submitted, setSubmitted] = useState<boolean>(false);
   const [step, setStep] = useState<1 | 2>(1);
+  const [copied, setCopied] = useState<boolean>(false);
 
   if (submitted) {
     return (
@@ -51,15 +52,19 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
       if (navigator.share) {
         try {
           await navigator.share(shareData);
-        } catch (err) {
-          console.error('Error sharing:', err);
+        } catch {
+          // Fallback or user canceled share
         }
       } else {
         try {
-          await navigator.clipboard.writeText(shareData.url);
-          alert('Link copied to clipboard!');
-        } catch (err) {
-          console.error('Failed to copy text:', err);
+          if (navigator.clipboard) {
+            await navigator.clipboard.writeText(shareData.url);
+          }
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2500);
+        } catch {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2500);
         }
       }
     };
@@ -70,10 +75,23 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
         <div className="flex justify-end mb-1 sm:mb-2">
            <button
             onClick={handleShare}
-            className="flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-blue-50 text-[#004B8D] border border-blue-200 hover:bg-[#004B8D] hover:text-white transition-colors rounded-lg font-bold text-xs sm:text-sm active:scale-95 cursor-pointer"
+            className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 border transition-colors rounded-lg font-bold text-xs sm:text-sm active:scale-95 cursor-pointer ${
+              copied
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                : 'bg-blue-50 text-[#004B8D] border-blue-200 hover:bg-[#004B8D] hover:text-white'
+            }`}
           >
-            <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            <span>{t('results_share_btn', 'Share')}</span>
+            {copied ? (
+              <>
+                <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />
+                <span>Link Copied!</span>
+              </>
+            ) : (
+              <>
+                <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span>{t('results_share_btn', 'Share')}</span>
+              </>
+            )}
           </button>
         </div>
         <div className="flex-grow flex flex-col gap-2 sm:gap-2.5 min-h-0">
@@ -176,19 +194,19 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
           </div>
         </div>
 
-        {/* Right Column: Postscript */}
+        {/* Right Column: Parking Program Outcomes */}
         <div className="flex flex-col">
           <div className="bg-white border border-gray-200 rounded-xl p-2 sm:p-2.5 shadow-xs flex flex-col h-full justify-center">
             <div className="flex items-center gap-1.5 mb-1 sm:mb-1.5">
               <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-md bg-[#0081BC]/10 flex items-center justify-center flex-shrink-0">
-                <MapPin className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#0081BC]" />
+                <Target className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#0081BC]" />
               </div>
               <h3 className="text-[0.625rem] sm:text-xs font-bold uppercase tracking-wider text-[#004B8D] truncate">
-                {t('results_edmonton_alignment_title', 'Edmonton Alignment')}
+                {t('results_parking_program_outcomes_title', t('results_outcome_title', t('results_alignment_title', 'Parking Program Outcomes')))}
               </h3>
             </div>
             <p className="text-xs text-gray-700 leading-snug bg-gray-50 p-2 rounded-lg border border-gray-200 line-clamp-4 sm:line-clamp-none">
-              {persona.edmontonPolicyFit}
+              {persona.outcome || persona.edmontonPolicyFit}
             </p>
           </div>
         </div>
@@ -294,3 +312,5 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
     </div>
   );
 };
+
+export const ResultsView = React.memo(ResultsViewComponent);

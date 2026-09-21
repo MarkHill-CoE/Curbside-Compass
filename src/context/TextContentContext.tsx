@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import {
   getActiveSheetUrl,
   setActiveSheetUrl,
@@ -162,7 +162,9 @@ export const TextContentProvider: React.FC<{ children: React.ReactNode }> = ({ c
     return fallback;
   }, [texts]);
 
-  const value: TextContentContextValue = {
+  const isCustomActive = Boolean(itemCount > 0);
+
+  const value = useMemo<TextContentContextValue>(() => ({
     t,
     sheetUrl,
     setSheetUrl,
@@ -173,8 +175,20 @@ export const TextContentProvider: React.FC<{ children: React.ReactNode }> = ({ c
     syncNow,
     applyDirectCsv,
     resetToDefaults,
-    isCustomActive: Boolean(itemCount > 0)
-  };
+    isCustomActive
+  }), [
+    t,
+    sheetUrl,
+    setSheetUrl,
+    syncStatus,
+    itemCount,
+    lastSynced,
+    errorMessage,
+    syncNow,
+    applyDirectCsv,
+    resetToDefaults,
+    isCustomActive
+  ]);
 
   return (
     <TextContentContext.Provider value={value}>

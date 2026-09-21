@@ -100,7 +100,9 @@ results_step2_title,12,Page 12 - Results: Policy Details & Planner Feedback,Summ
 results_fee_model_label,12,Page 12 - Results: Policy Details & Planner Feedback,Summary Section - Curbside Fee Card,Curbside Fee Model,10px - 12px,Open Sans,Normal (400)
 results_enforcement_label,12,Page 12 - Results: Policy Details & Planner Feedback,Summary Section - Enforcement Card,Enforcement Level,10px - 12px,Open Sans,Normal (400)
 results_you_believe_title,12,Page 12 - Results: Policy Details & Planner Feedback,Priorities Card,You Believe,10px - 12px,Open Sans,"Bold (700), Uppercase, Tracking-wider"
-results_alignment_title,12,Page 12 - Results: Policy Details & Planner Feedback,Edmonton Policy Alignment Card,Edmonton Alignment,10px - 12px,Open Sans,"Bold (700), Uppercase, Tracking-wider"
+results_alignment_title,12,Page 12 - Results: Policy Details & Planner Feedback,Parking Program Outcomes Card,Parking Program Outcomes,10px - 12px,Open Sans,"Bold (700), Uppercase, Tracking-wider"
+results_outcome_title,12,Page 12 - Results: Policy Details & Planner Feedback,Parking Program Outcomes Card,Parking Program Outcomes,10px - 12px,Open Sans,"Bold (700), Uppercase, Tracking-wider"
+results_parking_program_outcomes_title,12,Page 12 - Results: Policy Details & Planner Feedback,Parking Program Outcomes Card,Parking Program Outcomes,10px - 12px,Open Sans,"Bold (700), Uppercase, Tracking-wider"
 feedback_question,12,Page 12 - Results: Policy Details & Planner Feedback,Planner Feedback Form,Do you feel this represents your view on neighbourhood parking?,12px - 14px,Open Sans,"Bold (700), Leading-tight"
 feedback_rating_legend_min,12,Page 12 - Results: Policy Details & Planner Feedback,Planner Feedback Form - Rating Legend,1 - Strongly Disagree,10px - 12px,Open Sans,Semibold (600)
 feedback_rating_legend_max,12,Page 12 - Results: Policy Details & Planner Feedback,Planner Feedback Form - Rating Legend,5 - Strongly Agree,10px - 12px,Open Sans,Semibold (600)
