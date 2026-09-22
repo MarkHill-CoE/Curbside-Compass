@@ -1345,7 +1345,8 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
       z: number,
       type: string,
       primaryColor: string,
-      isFlipped = false
+      isFlipped = false,
+      vehicleState?: string
     ) {
       const topC = primaryColor;
       const leftC = adjustColor(primaryColor, -15);
@@ -1385,6 +1386,22 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
             ctx!.lineTo(p4.x, p4.y);
             ctx!.closePath();
             ctx!.fill();
+          }
+
+          // Flashing hazard lights when delivery van is stopped for delivery
+          const isVanStopped = vehicleState === 'STOPPED' || vehicleState === 'AT_DOOR' || vehicleState === 'RETURNING';
+          if (isVanStopped) {
+            const isBlinkerOn = Math.floor(Date.now() / 260) % 2 === 0;
+            if (isBlinkerOn) {
+              const amber = '#ffb300';
+              const amberGlow = '#ff8800';
+              // Front hazard lights
+              drawBlock(x + 20.3, y + 0.5, zOffset + 1.8, 0.7, 0.9, 0.8, amber, amberGlow, amberGlow);
+              drawBlock(x + 20.3, y + 6.3, zOffset + 1.8, 0.7, 0.9, 0.8, amber, amberGlow, amberGlow);
+              // Rear hazard lights
+              drawBlock(x - 0.4, y + 0.5, zOffset + 1.8, 0.7, 0.9, 0.8, amber, amberGlow, amberGlow);
+              drawBlock(x - 0.4, y + 6.3, zOffset + 1.8, 0.7, 0.9, 0.8, amber, amberGlow, amberGlow);
+            }
           }
         } else {
           drawBlock(x + 3, y - 1, zOffset + 9.5, 3, 1, 2, tire, tire, tire);
@@ -1850,23 +1867,53 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
       };
     }
 
+    interface DeliveredParcel {
+      id: string;
+      houseIndex: number;
+      x: number;
+      y: number;
+      z: number;
+      w: number;
+      d: number;
+      h: number;
+      color: string;
+      deliveredAt: number;
+    }
+
     let deliveryVansList: DeliveryVan[] = [];
+    const deliveredParcels: DeliveredParcel[] = [];
+
+    function getTargetStopX(targetHouse: number): number {
+      if (targetHouse === 0) {
+        // House 0: hydrant is at x = 27 (clearance zone 20 to 35). Apron is at 49.75.
+        // Stopping at x = 26 in travel lane places van cab at x = 40, right before driveway apron.
+        return 26;
+      }
+      if (targetHouse === 5 && isLotSplit(5)) {
+        // Split skinny infill at house 5 uses adjacent House 4 driveway apron (x = 269.75)
+        return 248;
+      }
+      const houseBaseX = 10 + targetHouse * 55;
+      // Van front reaches driveway apron at houseBaseX + 39, well past boulevard tree at houseBaseX + 25
+      return houseBaseX + 18;
+    }
 
     function createDeliveryVan(id: number, targetHouse: number): DeliveryVan {
-      // Van stopping position stops strictly clear of the 1.5m driveway clearance and 5m hydrant clearance
-      const stopX = 10 + targetHouse * 55 + (targetHouse === 0 ? 60 : 7);
-      const doorX = 10 + targetHouse * 55 + 13;
+      const houseBaseX = 10 + targetHouse * 55;
+      const isSplit = isLotSplit(targetHouse);
+      const doorX = (targetHouse === 5 && isSplit) ? (houseBaseX + 9) : (houseBaseX + 15);
+      const stopX = getTargetStopX(targetHouse);
       return {
         id,
         type: 'deliveryVan',
-        x: -150 - id * 130,
+        x: -120 - id * 120,
         y: 104,
         baseY: 104,
         targetY: 104,
         w: 21,
         d: 8,
-        baseSpeed: 1.0,
-        speed: 1.0,
+        baseSpeed: 0.9,
+        speed: 0.9,
         color: '#FF5500',
         state: 'APPROACHING',
         targetHouse,
@@ -1876,7 +1923,7 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
           x: 0,
           y: 0,
           targetDoorX: doorX,
-          targetDoorY: 35,
+          targetDoorY: 36,
           hasPackage: true,
           active: false
         }
@@ -1895,11 +1942,16 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
       }
     }
 
-    function isCurbsideSpotOccupied(targetStopX: number, totalParked: number): boolean {
-      for (let i = 0; i < totalParked; i++) {
-        const car = houseCarAssignments[activeIndices[i]];
-        if (car && car.y >= 90) {
-          if (Math.abs(car.x - targetStopX) < 22) {
+    function isCurbsideSpotOccupied(targetStopX: number, obstacles: RoadObstacle[] = []): boolean {
+      // Zone checks: bus stop zone (x: 300 - 350) and fire hydrant zone (x: 20 - 35) prohibit curbside parking
+      if (targetStopX + 21 >= 300 && targetStopX <= 350) return true;
+      if (targetStopX + 21 >= 20 && targetStopX <= 35) return true;
+
+      for (let i = 0; i < obstacles.length; i++) {
+        const obs = obstacles[i];
+        if (obs.type === 'deliveryVan') continue; // Don't block self
+        if (obs.y >= 90 && obs.y <= 98) {
+          if (obs.x < targetStopX + 24 && obs.x + obs.w > targetStopX - 4) {
             return true;
           }
         }
@@ -2140,7 +2192,7 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
     ) {
       if (van.state === 'APPROACHING') {
         if (van.x > van.targetStopX - 60) {
-          const occupied = isCurbsideSpotOccupied(van.targetStopX, totalParked);
+          const occupied = isCurbsideSpotOccupied(van.targetStopX, allObstacles);
           van.targetY = occupied ? 104 : 94;
         }
 
@@ -2163,28 +2215,42 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
 
         van.speed = safeSpeed;
 
-        if (targetX >= van.targetStopX) {
-          van.x = van.targetStopX;
+        const distToStop = van.targetStopX - van.x;
+        if (distToStop <= 1.0 || (distToStop <= 8.0 && safeSpeed < 0.08)) {
+          van.x = Math.min(van.x, van.targetStopX);
           van.speed = 0;
           van.state = 'STOPPED';
-          van.driver.active = true;
-          van.driver.x = van.x + 10;
-          van.driver.y = van.y - 2;
-          van.driver.hasPackage = true;
+          van.stopTimer = 0;
 
           const targetHouse = van.targetHouse;
           const houseBaseX = 10 + targetHouse * 55;
-          let apronX = houseBaseX + 39.75;
-          if (targetHouse === 5) {
-            apronX = 10 + 4 * 55 + 39.75; // Use neighbor's driveway for skinny lot
-          }
+          const isSplit = isLotSplit(targetHouse);
+          const doorX = (targetHouse === 5 && isSplit)
+            ? (van.id % 2 === 0 ? houseBaseX + 9 : houseBaseX + 29)
+            : (houseBaseX + 15);
+          const doorY = 36;
+          const apronX = (targetHouse === 5 && isSplit)
+            ? (10 + 4 * 55 + 39.75) // House 4 driveway apron cut for split lots
+            : (houseBaseX + 39.75);
 
+          // Left side of van (driver cab door facing curb/travel lane edge)
+          const cabX = van.x + 14;
+          const cabY = van.y >= 100 ? 102.5 : 92.5;
+
+          van.driver.active = true;
+          van.driver.x = cabX;
+          van.driver.y = cabY;
+          van.driver.hasPackage = true;
+          van.driver.targetDoorX = doorX;
+          van.driver.targetDoorY = doorY;
+
+          // Pure pedestrian path: street edge -> driveway apron cut -> public sidewalk -> front walkway -> doorstep
           van.driver.path = [
-            { x: van.driver.x, y: van.driver.y },
-            { x: apronX, y: van.driver.y },
+            { x: cabX, y: cabY },
+            { x: apronX, y: cabY },
             { x: apronX, y: 74 },
-            { x: van.driver.targetDoorX, y: 74 },
-            { x: van.driver.targetDoorX, y: 35 }
+            { x: doorX, y: 74 },
+            { x: doorX, y: doorY }
           ];
           van.driver.pathIdx = 1;
         } else {
@@ -2198,7 +2264,7 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
           const dx = target.x - d.x;
           const dy = target.y - d.y;
           const dist = Math.hypot(dx, dy);
-          if (dist > 1.5) {
+          if (dist > 0.8) {
             d.x += (dx / dist) * 0.45;
             d.y += (dy / dist) * 0.45;
           } else {
@@ -2213,25 +2279,56 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
       } else if (van.state === 'AT_DOOR') {
         van.speed = 0;
         van.stopTimer++;
-        if (van.stopTimer > 65) {
+        
+        // Delivery driver places parcel down at front door
+        if (van.stopTimer === 25) {
           van.driver.hasPackage = false;
-          van.state = 'RETURNING';
 
+          const doorX = van.driver.targetDoorX;
+          const existingParcelsAtHouse = deliveredParcels.filter(p => p.houseIndex === van.targetHouse).length;
+          const pOffsetX = (existingParcelsAtHouse % 3) * 2.6 - 1.2;
+          const pOffsetY = Math.floor(existingParcelsAtHouse / 3) * 1.5;
+
+          deliveredParcels.push({
+            id: `parcel_${Date.now()}_${Math.random()}`,
+            houseIndex: van.targetHouse,
+            x: doorX + pOffsetX,
+            y: 35.6 + pOffsetY,
+            z: 0.8,
+            w: 2.4,
+            d: 2.0,
+            h: 1.6,
+            color: '#d2b48c',
+            deliveredAt: Date.now()
+          });
+
+          if (deliveredParcels.length > 12) {
+            deliveredParcels.shift();
+          }
+        }
+
+        // Driver pauses briefly after leaving parcel, then heads back to the delivery van
+        if (van.stopTimer > 55) {
+          van.state = 'RETURNING';
           const targetHouse = van.targetHouse;
           const houseBaseX = 10 + targetHouse * 55;
-          let apronX = houseBaseX + 39.75;
-          if (targetHouse === 5) {
-            apronX = 10 + 4 * 55 + 39.75;
-          }
-          const vanDoorX = van.x + 10;
-          const vanDoorY = van.y - 2;
+          const isSplit = isLotSplit(targetHouse);
+          const doorX = van.driver.targetDoorX;
+          const doorY = van.driver.targetDoorY;
+          const apronX = (targetHouse === 5 && isSplit)
+            ? (10 + 4 * 55 + 39.75)
+            : (houseBaseX + 39.75);
 
+          const cabX = van.x + 14;
+          const cabY = van.y >= 100 ? 102.5 : 92.5;
+
+          // Return pedestrian path: doorstep -> front walkway -> public sidewalk -> driveway apron cut -> street edge -> van cab
           van.driver.path = [
-            { x: van.driver.targetDoorX, y: 35 },
-            { x: van.driver.targetDoorX, y: 74 },
+            { x: doorX, y: doorY },
+            { x: doorX, y: 74 },
             { x: apronX, y: 74 },
-            { x: apronX, y: vanDoorY },
-            { x: vanDoorX, y: vanDoorY }
+            { x: apronX, y: cabY },
+            { x: cabX, y: cabY }
           ];
           van.driver.pathIdx = 1;
         }
@@ -2243,7 +2340,7 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
           const dx = target.x - d.x;
           const dy = target.y - d.y;
           const dist = Math.hypot(dx, dy);
-          if (dist > 1.5) {
+          if (dist > 0.8) {
             d.x += (dx / dist) * 0.45;
             d.y += (dy / dist) * 0.45;
           } else {
@@ -2252,13 +2349,16 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
             d.pathIdx++;
           }
         } else {
+          // Driver has returned to delivery van and gets back inside
           d.active = false;
           van.state = 'LEAVING';
+          van.targetY = 104; // Merge back into travel lane
+          van.stopTimer = 0;
         }
       } else if (van.state === 'LEAVING') {
         const targetY = 104;
         if (Math.abs(van.y - targetY) > 0.05) {
-          const nextY = van.y + (targetY > van.y ? 1 : -1) * Math.min(0.35, Math.abs(targetY - van.y));
+          const nextY = van.y + (targetY > van.y ? 1 : -1) * Math.min(0.28, Math.abs(targetY - van.y));
           if (canChangeLane(van, nextY, allObstacles)) {
             van.y = nextY;
           }
@@ -2282,13 +2382,17 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
         }
       } else if (van.state === 'COOLDOWN') {
         van.stopTimer++;
-        if (van.stopTimer > 180) {
+        if (van.stopTimer > 150) {
           const newHouse = (van.targetHouse + 1) % 6;
           van.targetHouse = newHouse;
-          van.targetStopX = 10 + newHouse * 55 + 35;
-          van.driver.targetDoorX = 10 + newHouse * 55 + 24;
+          const nextHouseBaseX = 10 + newHouse * 55;
+          const nextIsSplit = isLotSplit(newHouse);
+          const nextDoorX = (newHouse === 5 && nextIsSplit) ? (nextHouseBaseX + 9) : (nextHouseBaseX + 15);
 
-          let spawnX = -150 - Math.random() * 60;
+          van.targetStopX = getTargetStopX(newHouse);
+          van.driver.targetDoorX = nextDoorX;
+
+          let spawnX = -140 - Math.random() * 80;
           for (let j = 0; j < allObstacles.length; j++) {
             const obs = allObstacles[j];
             if (obs === van) continue;
@@ -2301,7 +2405,9 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
 
           van.x = spawnX;
           van.y = 104;
+          van.baseY = 104;
           van.targetY = 104;
+          van.speed = van.baseSpeed;
           van.state = 'APPROACHING';
         }
       }
@@ -3182,7 +3288,13 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
       // Layer 2: Houses (drawn on background behind vehicles in front of them)
       ctx!.drawImage(bgHousesCanvas, 0, 0);
 
-      
+      // Render delivered parcels sitting at the front doors of houses
+      for (let pIdx = 0; pIdx < deliveredParcels.length; pIdx++) {
+        const p = deliveredParcels[pIdx];
+        drawBlock(p.x, p.y, p.z, p.w, p.d, p.h, '#d2b48c', '#b89768', '#9e7a4a');
+        drawBlock(p.x + p.w * 0.38, p.y, p.z + p.h, p.w * 0.24, p.d, 0.04, '#c29b68', '#b08a56', '#9f7845');
+        drawBlock(p.x + 0.3, p.y + 0.3, p.z + p.h, 0.8, 0.8, 0.05, '#ffffff', '#e8e8e8', '#d0d0d0');
+      }
 
       // Handle Residents gathering on front lawns in friendly social groups
       for (let i = 0; i < residents.length; i++) {
@@ -3307,7 +3419,16 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
       }
       for (let i = 0; i < deliveryVansList.length; i++) {
         const van = deliveryVansList[i];
-        renderQueue.push({ ...van, color: van.color || '#FF5500', isFlipped: false, sortY: van.y });
+        renderQueue.push({ ...van, color: van.color || '#FF5500', isFlipped: false, sortY: van.y, state: van.state });
+        if (van.driver.active) {
+          renderQueue.push({
+            type: 'deliveryDriver',
+            x: van.driver.x,
+            y: van.driver.y,
+            hasPackage: van.driver.hasPackage,
+            sortY: van.driver.y
+          });
+        }
       }
       for (let i = 0; i < emergencyVehicles.length; i++) {
         const v = emergencyVehicles[i];
@@ -3350,8 +3471,16 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
           drawCyclist(item.x, item.y, 0, item.color);
         } else if (item.type === 'scooter') {
           drawScooter(item.x, item.y, 0, item.color);
+        } else if (item.type === 'deliveryDriver') {
+          drawPedestrian(item.x, item.y, 0, '#009A44');
+          if (item.hasPackage) {
+            // Driver holding parcel in front
+            drawBlock(item.x - 0.4, item.y - 0.8, 2.6, 2.0, 1.6, 1.4, '#d2b48c', '#b89768', '#9e7a4a');
+            drawBlock(item.x + 0.2, item.y - 0.8, 4.0, 0.5, 1.6, 0.04, '#c29b68', '#b08a56', '#9f7845');
+            drawBlock(item.x - 0.2, item.y - 0.6, 4.0, 0.7, 0.7, 0.05, '#ffffff', '#e8e8e8', '#d0d0d0');
+          }
         } else {
-          drawVehicle(item.x, item.y, 0, item.type, item.color, item.isFlipped);
+          drawVehicle(item.x, item.y, 0, item.type, item.color, item.isFlipped, item.state);
           
           if (item.isFlipped) {
             spawnFireParticle(item.x + 3, item.y + 3, 4);
@@ -3436,22 +3565,19 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
         }
       }
 
-      for (let i = 0; i < deliveryVansList.length; i++) {
-        const dr = deliveryVansList[i].driver;
-        if (dr.active) {
-          drawPedestrian(dr.x, dr.y, 0, '#009A44');
-          if (dr.hasPackage) {
-            drawBlock(dr.x + 0.5, dr.y - 1, 2.5, 2.2, 2.2, 1.8, '#d2b48c', '#b89768', '#9e7a4a');
-          }
-        }
-      }
-
       // Render residents walking from successfully parallel parked cars to their house front door
       for (let i = parkedWalkers.length - 1; i >= 0; i--) {
         const pw = parkedWalkers[i];
         if (!pw.active) continue;
 
         if (pw.state === 'curb_to_sidewalk') {
+          // Avoid boulevard trees (trees at x = 16 or baseX + 25, y = 84)
+          for (let h = 0; h < 6; h++) {
+            const tX = h === 0 ? 16 : (10 + h * 55 + 25);
+            if (Math.abs(pw.x - tX) < 4.5 && pw.y > 77 && pw.y < 89) {
+              pw.x += (pw.x < tX ? -0.4 : 0.4);
+            }
+          }
           // Walk from driver side curb (y: 88) up across boulevard onto sidewalk (y: 74)
           pw.y -= 0.35;
           if (pw.y <= 74) {
