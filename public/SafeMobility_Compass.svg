@@ -1,37 +1,37 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="100%" height="100%">
   <defs>
-    <!-- Prismatic Honeycomb Cell Pattern -->
+    <!-- Prismatic Honeycomb Cell Pattern calibrated to #FFC72C -->
     <pattern id="sm-honeycomb" width="48" height="83.14" patternUnits="userSpaceOnUse">
-      <g stroke="#C88C00" stroke-width="1.2" fill="none" opacity="0.6">
+      <g stroke="#E0A812" stroke-width="1.2" fill="none" opacity="0.45">
         <!-- Interlocking Hexagons -->
         <path d="M 24,0 L 48,13.86 L 48,41.57 L 24,55.43 L 0,41.57 L 0,13.86 Z" />
         <path d="M 0,55.43 L 24,69.28 L 24,97 L 0,110.86 L -24,97 L -24,69.28 Z" />
         <path d="M 48,55.43 L 72,69.28 L 72,97 L 48,110.86 L 24,97 L 24,69.28 Z" />
         <!-- Micro-prism Facets for authentic retroreflective 3D shine -->
-        <path d="M 24,27.71 L 24,0 M 24,27.71 L 48,41.57 M 24,27.71 L 0,41.57" stroke="#FFE95A" stroke-width="0.9" opacity="0.85" />
-        <path d="M 48,83.14 L 48,55.43 M 48,83.14 L 72,97 M 48,83.14 L 24,97" stroke="#FFE95A" stroke-width="0.9" opacity="0.85" />
-        <path d="M 0,83.14 L 0,55.43 M 0,83.14 L 24,97 M 0,83.14 L -24,97" stroke="#FFE95A" stroke-width="0.9" opacity="0.85" />
+        <path d="M 24,27.71 L 24,0 M 24,27.71 L 48,41.57 M 24,27.71 L 0,41.57" stroke="#FFDE6E" stroke-width="0.9" opacity="0.6" />
+        <path d="M 48,83.14 L 48,55.43 M 48,83.14 L 72,97 M 48,83.14 L 24,97" stroke="#FFDE6E" stroke-width="0.9" opacity="0.6" />
+        <path d="M 0,83.14 L 0,55.43 M 0,83.14 L 24,97 M 0,83.14 L -24,97" stroke="#FFDE6E" stroke-width="0.9" opacity="0.6" />
       </g>
       <!-- Specular Retroreflective Highlight Nodes -->
-      <circle cx="24" cy="27.71" r="1.5" fill="#FFFFFF" opacity="0.9" />
-      <circle cx="0" cy="83.14" r="1.5" fill="#FFFFFF" opacity="0.9" />
-      <circle cx="48" cy="83.14" r="1.5" fill="#FFFFFF" opacity="0.9" />
+      <circle cx="24" cy="27.71" r="1.5" fill="#FFFFFF" opacity="0.75" />
+      <circle cx="0" cy="83.14" r="1.5" fill="#FFFFFF" opacity="0.75" />
+      <circle cx="48" cy="83.14" r="1.5" fill="#FFFFFF" opacity="0.75" />
     </pattern>
 
-    <!-- Fluorescent Safety Yellow Prismatic Radial Gradient -->
-    <radialGradient id="sm-yellow-base" cx="42%" cy="28%" r="72%">
-      <stop offset="0%" stop-color="#FFF877" />
-      <stop offset="35%" stop-color="#FFDD00" />
-      <stop offset="70%" stop-color="#FFBA00" />
-      <stop offset="100%" stop-color="#E58E00" />
+    <!-- Exact Edmonton Yellow Base matching header 'Compass' text (#FFC72C) -->
+    <radialGradient id="sm-yellow-base" cx="50%" cy="35%" r="75%">
+      <stop offset="0%" stop-color="#FFD452" />
+      <stop offset="45%" stop-color="#FFC72C" />
+      <stop offset="85%" stop-color="#F7BE20" />
+      <stop offset="100%" stop-color="#EDAE12" />
     </radialGradient>
 
-    <!-- Metallic Sheen Highlights -->
+    <!-- Clean Ambient Sheen -->
     <linearGradient id="sm-sheen" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.35" />
-      <stop offset="25%" stop-color="#FFFFFF" stop-opacity="0.1" />
-      <stop offset="70%" stop-color="#FFA800" stop-opacity="0.0" />
-      <stop offset="100%" stop-color="#A55A00" stop-opacity="0.3" />
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.25" />
+      <stop offset="35%" stop-color="#FFFFFF" stop-opacity="0.05" />
+      <stop offset="70%" stop-color="#FFC72C" stop-opacity="0.0" />
+      <stop offset="100%" stop-color="#A56E00" stop-opacity="0.15" />
     </linearGradient>
 
     <!-- Compass Mask with Cutouts -->
