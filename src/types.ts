@@ -22,6 +22,7 @@ export interface SimulationConfig {
   householdCarsPerHome: number; // 0 - 5 (default 2.5)
   visitorPassesPerHome: number; // 0 - 5 (default 0.5)
   drivewayCapacity: number; // 1 - 2 (single-car wide: 1 or 2 tandem)
+  splitInfillLots?: number; // 2 - 12 (increasing by 2 for each lot split, default 2)
   deliveriesPerHomePerWeek: number; // 1 - 4 (default 1.0)
   enforcementLevel: 'strict' | 'standard' | 'lenient';
   cruisingTrafficLevel: 'low' | 'moderate' | 'high';
@@ -48,6 +49,9 @@ declare global {
     __riotAudioPlayed?: boolean;
     __riotAudioPending?: boolean;
     __riotAudio?: HTMLAudioElement;
+    __commendationAudioPlayed?: boolean;
+    __commendationAudioPending?: boolean;
+    __commendationAudio?: HTMLAudioElement;
     __agentArtifactAudioUrl?: string;
   }
 }

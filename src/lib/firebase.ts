@@ -9,8 +9,8 @@ export const firebaseConfig = {
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "apps-parking-tradeoff-dev",
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "apps-parking-tradeoff-dev.firebasestorage.app",
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "1073690749503",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:1073690749503:web:97ee93c1b4f6cf3aa4668a",
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-Y367SDPETE"
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:1073690749503:web:d3d0c0dd5c15047ba4668a",
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-GTSPXG6VD9"
 };
 
 let dbInstance: Firestore | null = null;

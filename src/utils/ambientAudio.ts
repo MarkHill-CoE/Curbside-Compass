@@ -57,9 +57,17 @@ class AmbientAudioManager {
 
       this.audioElement.addEventListener('error', () => {
         console.warn('Primary ambient audio path failed, trying fallback path...');
-        if (this.audioElement && this.audioElement.src.includes('city_traffic_ambient.mp3')) {
-          this.audioElement.src = '/traffic_ambient.mp3';
-          this.audioElement.load();
+        if (this.audioElement) {
+          if (this.audioElement.src.includes('/city_traffic_ambient.mp3')) {
+            this.audioElement.src = '/audio/city_traffic_ambient.mp3';
+            this.audioElement.load();
+          } else if (this.audioElement.src.includes('/audio/city_traffic_ambient.mp3')) {
+            this.audioElement.src = '/traffic_ambient.mp3';
+            this.audioElement.load();
+          } else if (this.audioElement.src.includes('/traffic_ambient.mp3')) {
+            this.audioElement.src = '/audio/city-traffic.mp3';
+            this.audioElement.load();
+          }
         }
       });
     } catch (err) {
@@ -85,12 +93,28 @@ class AmbientAudioManager {
       this.gainNode.gain.setValueAtTime(this.soundEnabled ? this.volume : 0, this.audioContext.currentTime);
       this.gainNode.connect(this.audioContext.destination);
 
-      // Fetch and decode MP3 into memory
-      fetch('/city_traffic_ambient.mp3')
-        .then((res) => {
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          return res.arrayBuffer();
-        })
+      // Fetch and decode MP3 into memory (with fallback paths)
+      const tryFetchBuffer = async () => {
+        const candidatePaths = [
+          '/city_traffic_ambient.mp3',
+          '/audio/city_traffic_ambient.mp3',
+          '/traffic_ambient.mp3',
+          '/audio/city-traffic.mp3'
+        ];
+        for (const p of candidatePaths) {
+          try {
+            const res = await fetch(p);
+            if (res.ok) {
+              return await res.arrayBuffer();
+            }
+          } catch {
+            // Try next candidate
+          }
+        }
+        throw new Error('All ambient audio paths failed to load');
+      };
+
+      tryFetchBuffer()
         .then((arrayBuffer) => {
           if (!this.audioContext) return;
           return this.audioContext.decodeAudioData(arrayBuffer);

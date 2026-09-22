@@ -3,6 +3,9 @@ declare global {
     __riotAudioPlayed?: boolean; 
     __riotAudioPending?: boolean;
     __riotAudio?: HTMLAudioElement;
+    __commendationAudioPlayed?: boolean;
+    __commendationAudioPending?: boolean;
+    __commendationAudio?: HTMLAudioElement;
   } 
 }
 
@@ -19,6 +22,8 @@ interface NeighborhoodSimulationProps {
   isCompleted?: boolean;
 }
 
+// Base legal curbside stalls when all 6 lots have standard front driveways and curb cuts
+const BASE_LEGAL_CURBSIDE_STALLS = 10;
 const TOTAL_LEGAL_CURBSIDE_STALLS = 11;
 
 const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = ({
@@ -35,15 +40,16 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
   const [soundEnabled, setSoundEnabled] = useState<boolean>(feedback.isSoundEnabled());
   const [showControls, setShowControls] = useState<boolean>(false);
   const [curbsideDemandCount, setCurbsideDemandCount] = useState<number>(0);
+  const [curbsideStallsCapacity, setCurbsideStallsCapacity] = useState<number>(BASE_LEGAL_CURBSIDE_STALLS + 1);
   const [curbsidePct, setCurbsidePct] = useState<number>(0);
   const [circlingCarCount, setCirclingCarCount] = useState<number>(0);
   const [isRiotActive, setIsRiotActive] = useState<boolean>(false);
   const [isHarmonyActive, setIsHarmonyActive] = useState<boolean>(false);
   const [zoomScale, setZoomScale] = useState<number>(1.33);
-  const [visualAudioAlert, setVisualAudioAlert] = useState<{ text: string; icon: 'horn' | 'siren' | 'alarm' } | null>(null);
+  const [visualAudioAlert, setVisualAudioAlert] = useState<{ text: string; icon: 'horn' | 'siren' | 'alarm' | 'medal' } | null>(null);
   const audioAlertTimerRef = useRef<number | null>(null);
 
-  const triggerVisualAudioAlert = useCallback((text: string, icon: 'horn' | 'siren' | 'alarm' = 'horn') => {
+  const triggerVisualAudioAlert = useCallback((text: string, icon: 'horn' | 'siren' | 'alarm' | 'medal' = 'horn') => {
     setVisualAudioAlert({ text, icon });
     if (audioAlertTimerRef.current) window.clearTimeout(audioAlertTimerRef.current);
     audioAlertTimerRef.current = window.setTimeout(() => {
@@ -267,59 +273,133 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
     let harmonyTimer = 0;
     let isHarmony = false;
     let harmonyFlowerGrowth = 0;
-    const flowerBeds: Array<{x: number, y: number, color: string, z: number, id: number}> = [];
-    const residents: Array<{x: number, y: number, state: 'inside' | 'walking_to_garden' | 'planting' | 'visiting', targetX: number, targetY: number, color: string, homeX: number, timer: number, friendIdx: number}> = [];
+    const flowerBeds: Array<{x: number, y: number, color: string, z: number, id: number, sizeScale: number}> = [];
+    const residents: Array<{
+      x: number;
+      y: number;
+      state: 'inside' | 'walking_to_lawn' | 'chatting';
+      targetX: number;
+      targetY: number;
+      color: string;
+      homeX: number;
+      timer: number;
+      groupId: number;
+      talkBubbleTimer: number;
+    }> = [];
     const flowerColors = ['#ff6b6b', '#feca57', '#48dbfb', '#ff9ff3', '#f368e0', '#ff9f43', '#0abde3', '#e17055', '#fdcb6e'];
     const compColors = ['#FF8C00', '#8A2BE2', '#FF1493', '#00FFFF', '#FFD700', '#ADFF2F']; // Complementary colors to the 6 house colors
-    const shirtColors = ['#e74c3c', '#3498db', '#2ecc71', '#9b59b6', '#f1c40f', '#e67e22', '#1abc9c'];
+    const allFlowerColors = [...flowerColors, ...compColors];
+    const shirtColors = ['#e74c3c', '#3498db', '#2ecc71', '#9b59b6', '#f1c40f', '#e67e22', '#1abc9c', '#e84393', '#00cec9', '#6c5ce7'];
     const _lotWidth = 55;
     let flowerIdCounter = 0;
-    for (let h = 0; h < 6; h++) {
-      const startX = 10 + h * _lotWidth;
-      const numResidents = (h === 5) ? 4 : 2;
-      for (let r = 0; r < numResidents; r++) {
-         const homeDoorX = (h === 5) ? (startX + (r % 2 === 0 ? 5 : 25)) : (startX + 28);
-         residents.push({
-             x: homeDoorX,
-             y: 35,
-             state: 'inside',
-             targetX: homeDoorX,
-             targetY: 35,
-             color: shirtColors[Math.floor(Math.random() * shirtColors.length)],
-             homeX: homeDoorX,
-             timer: Math.random() * 2,
-             friendIdx: -1
-         });
-      }
-      if (h === 5) {
-        for (let j = 0; j < 15; j++) {
-          // Skinny 1 (x: startX+5 to startX+20, door at startX+10, width 3)
-          // Front edge y = 36 to 39
-          let fx1 = startX + 5 + Math.random() * 15;
-          while (fx1 > startX + 9 && fx1 < startX + 14) {
+
+    // Helper to determine if a lot index (0 to 5) is converted into split infill skinny homes
+    // Split infill lots count is 2 to 12 (increasing by 2 per physical lot split).
+    const getSplitInfillCount = () => {
+      const raw = configRef.current.splitInfillLots;
+      const count = typeof raw === 'number' ? raw : 2;
+      return Math.min(12, Math.max(2, Math.round(count / 2) * 2));
+    };
+
+    const isLotSplit = (lotIndex: number, splitCount = getSplitInfillCount()) => {
+      const numPhysicalLotsSplit = Math.floor(splitCount / 2);
+      // Allocate from right to left: e.g. 2 splits -> lot 5; 4 -> lots 5, 4; 6 -> lots 5, 4, 3; etc.
+      return lotIndex >= 6 - numPhysicalLotsSplit;
+    };
+
+    // Dynamic lawn gathering hubs matching current lot configurations
+    let lawnGatheringHubs: Array<{ centerX: number; centerY: number }> = [];
+
+    let residentIdCounter = 0;
+    const rebuildResidentsAndFlowers = () => {
+      flowerBeds.length = 0;
+      residents.length = 0;
+      lawnGatheringHubs = [];
+      const currentSplits = getSplitInfillCount();
+
+      for (let h = 0; h < 6; h++) {
+        const startX = 10 + h * _lotWidth;
+        const lotIsSkinny = isLotSplit(h, currentSplits);
+
+        if (lotIsSkinny) {
+          const hubIdx1 = lawnGatheringHubs.length;
+          lawnGatheringHubs.push({ centerX: startX + 17, centerY: 52 });
+          const hubIdx2 = lawnGatheringHubs.length;
+          lawnGatheringHubs.push({ centerX: startX + 37, centerY: 52 });
+
+          // 5-6 friendly neighbors on skinny split lots
+          for (let r = 0; r < 5; r++) {
+            const homeDoorX = startX + (r % 2 === 0 ? 9 : 29);
+            const assignedHub = r % 2 === 0 ? hubIdx1 : hubIdx2;
+            residents.push({
+              x: homeDoorX,
+              y: 35,
+              state: 'inside',
+              targetX: homeDoorX,
+              targetY: 35,
+              color: shirtColors[residentIdCounter % shirtColors.length],
+              homeX: homeDoorX,
+              timer: 0.1 + Math.random() * 1.5,
+              groupId: assignedHub,
+              talkBubbleTimer: Math.random() * 4
+            });
+            residentIdCounter++;
+          }
+
+          // Flower beds for skinny 1 and skinny 2
+          for (let j = 0; j < 15; j++) {
+            let fx1 = startX + 5 + Math.random() * 15;
+            while (fx1 > startX + 9 && fx1 < startX + 14) {
               fx1 = startX + 5 + Math.random() * 15;
-          }
-          flowerBeds.push({ x: fx1, y: 36 + Math.random() * 3, z: Math.random() * 1.5, color: compColors[h], id: flowerIdCounter++ });
-          
-          // Skinny 2 (x: startX+25 to startX+40, door at startX+30, width 3)
-          let fx2 = startX + 25 + Math.random() * 15;
-          while (fx2 > startX + 29 && fx2 < startX + 34) {
+            }
+            const bedColor1 = allFlowerColors[Math.floor(Math.random() * allFlowerColors.length)];
+            const scale1 = 0.40 + Math.random() * 0.60;
+            flowerBeds.push({ x: fx1, y: 36 + Math.random() * 3, z: Math.random() * 1.5, color: bedColor1, sizeScale: scale1, id: flowerIdCounter++ });
+
+            let fx2 = startX + 25 + Math.random() * 15;
+            while (fx2 > startX + 29 && fx2 < startX + 34) {
               fx2 = startX + 25 + Math.random() * 15;
+            }
+            const bedColor2 = allFlowerColors[Math.floor(Math.random() * allFlowerColors.length)];
+            const scale2 = 0.40 + Math.random() * 0.60;
+            flowerBeds.push({ x: fx2, y: 36 + Math.random() * 3, z: Math.random() * 1.5, color: bedColor2, sizeScale: scale2, id: flowerIdCounter++ });
           }
-          flowerBeds.push({ x: fx2, y: 36 + Math.random() * 3, z: Math.random() * 1.5, color: compColors[h], id: flowerIdCounter++ });
-        }
-      } else {
-        for (let j = 0; j < 30; j++) {
-          // Standard (x: startX+5 to startX+33, door at startX+13, width 4)
-          // Garage starts at startX+33, so we stop before the driveway
-          let fx = startX + 5 + Math.random() * 27;
-          while (fx > startX + 12 && fx < startX + 18) { // wider berth for the door
+        } else {
+          // Standard single family home lawn hub
+          const hubIdx = lawnGatheringHubs.length;
+          lawnGatheringHubs.push({ centerX: startX + 18, centerY: 52 });
+
+          for (let r = 0; r < 3; r++) {
+            const homeDoorX = startX + 15;
+            residents.push({
+              x: homeDoorX,
+              y: 35,
+              state: 'inside',
+              targetX: homeDoorX,
+              targetY: 35,
+              color: shirtColors[residentIdCounter % shirtColors.length],
+              homeX: homeDoorX,
+              timer: 0.1 + Math.random() * 1.5,
+              groupId: hubIdx,
+              talkBubbleTimer: Math.random() * 4
+            });
+            residentIdCounter++;
+          }
+
+          // Flower beds along standard front lawn
+          for (let j = 0; j < 30; j++) {
+            let fx = startX + 5 + Math.random() * 27;
+            while (fx > startX + 12 && fx < startX + 18) {
               fx = startX + 5 + Math.random() * 27;
+            }
+            const bedColor = allFlowerColors[Math.floor(Math.random() * allFlowerColors.length)];
+            const scale = 0.40 + Math.random() * 0.60;
+            flowerBeds.push({ x: fx, y: 36 + Math.random() * 3, z: Math.random() * 1.5, color: bedColor, sizeScale: scale, id: flowerIdCounter++ });
           }
-          flowerBeds.push({ x: fx, y: 36 + Math.random() * 3, z: Math.random() * 1.5, color: compColors[h], id: flowerIdCounter++ });
         }
       }
-    }
+    };
+    rebuildResidentsAndFlowers();
     
     const confetti: Array<{x: number, y: number, vx: number, vy: number, color: string, size: number, angle: number, spin: number}> = [];
     const confettiColors = ['#009A44', '#004B8D', '#FFC72C', '#E8552D', '#FFFFFF', '#0081BC'];
@@ -347,7 +427,7 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
       { name: 'Purple', hex: '#68217A' }
     ];
 
-    const carTypes = ['sedan', 'suv', 'pickup', 'boxTruck', 'deliveryVan'];
+    const carTypes = ['sedan', 'suv', 'pickup', 'boxTruck', 'deliveryVan', 'etsBus', 'police', 'firetruck'];
     const colorCache = new Map<string, string>();
 
     function adjustColor(hex: string, percent: number): string {
@@ -555,7 +635,7 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
       for (let h = 0; h < 6; h++) {
         const i = 10 + h * lotWidth;
 
-        if (h === 5) {
+        if (isLotSplit(h)) {
           // Skinny Lots (No front driveway)
           // Front walkway for Skinny 1 (x: i + 5)
           drawFlatRect(i + 9, 35, 3, 35, '#d0d4d8', bgGroundCtx);
@@ -593,7 +673,7 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
       for (let h = 0; h < 6; h++) {
         const i = 10 + h * lotWidth;
         
-        if (h !== 5) { // Skip driveway logic for house 5 which doesn't have a front driveway
+        if (!isLotSplit(h)) { // Skip driveway logic for houses that don't have a front driveway
           // 1.5m No-Parking Driveway Clearance Zones (1.5m = 5.0 simulation units)
           // Left 1.5m clearance zone: [i + 30, i + 35]
           // Right 1.5m clearance zone: [i + 44.5, i + 49.5]
@@ -606,7 +686,7 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
             drawFlatRect(i + 30.5, 93.7, 4.0, 0.6, 'rgba(251, 191, 36, 0.75)', bgGroundCtx);
           }
 
-          // Right 1.5m yellow curb (applies to all driveways h = 0 to 5)
+          // Right 1.5m yellow curb (applies to all non-split driveways)
           drawFlatRect(i + 44.5, 92.4, 5.0, 1.2, '#FBBF24', bgGroundCtx);
           // Right boundary limit line (white)
           drawFlatRect(i + 49.5, 91.5, 0.6, 2.8, '#FFFFFF', bgGroundCtx);
@@ -648,6 +728,33 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
       bgGroundCtx.textAlign = 'center';
       bgGroundCtx.fillText('NO PARKING 5m', roadLabelPos.x, roadLabelPos.y);
       bgGroundCtx.restore();
+
+      // ETS Bus Stop Curb Zone Markings (Active when > 11 dwellings on the street)
+      // Spans the curbside bus bay area from x = 306 to 346, strictly prohibiting parking
+      const currentPhysicalSplit = Math.floor(getSplitInfillCount() / 2);
+      const currentStandardHomes = Math.max(0, 6 - currentPhysicalSplit);
+      const currentTotalHomes = currentStandardHomes + (currentPhysicalSplit * 2);
+      if (currentTotalHomes > 11) {
+        // Concrete boarding pad extension on boulevard to curb edge
+        drawFlatRect(310, 78, 28, 14.5, '#c5cbd2', bgGroundCtx);
+        // Yellow transit curb face and edge strip
+        drawFlatRect(308, 92.4, 38, 1.3, '#FFC72C', bgGroundCtx);
+        // Transit bus bay white boundary tick marks on asphalt
+        drawFlatRect(307.5, 91.5, 0.8, 6.0, '#FFFFFF', bgGroundCtx);
+        drawFlatRect(346.0, 91.5, 0.8, 6.0, '#FFFFFF', bgGroundCtx);
+        // Yellow bus bay chevron hatch stripes on asphalt
+        for (let bx = 310; bx <= 344; bx += 4) {
+          drawFlatRect(bx, 94.2, 0.9, 3.2, 'rgba(255, 199, 44, 0.65)', bgGroundCtx);
+        }
+        // Stenciled "BUS STOP - NO PARKING" text on roadway
+        const busStopRoadPos = project(327, 96, 0);
+        bgGroundCtx.save();
+        bgGroundCtx.fillStyle = '#FFC72C';
+        bgGroundCtx.font = 'bold 7.5px "Open Sans", sans-serif';
+        bgGroundCtx.textAlign = 'center';
+        bgGroundCtx.fillText('BUS STOP - NO PARKING', busStopRoadPos.x, busStopRoadPos.y);
+        bgGroundCtx.restore();
+      }
     }
 
     function drawFireHydrant(x: number, y: number, z: number, targetCtx: CanvasRenderingContext2D = bgHousesCtx) {
@@ -719,8 +826,8 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
         const rightC = adjustColor(brand.hex, -30);
         const roofC = adjustColor(brand.hex, -45);
         
-        // Example: If it's the last house, draw something different like a skinny split lot
-        if (h === 5) {
+        // Check if this lot is split into skinny homes
+        if (isLotSplit(h)) {
             // Draw two skinny homes
             const skinny1X = i + 5;
             const skinny2X = i + 25;
@@ -731,17 +838,14 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
             drawBlock(skinny1X + 5, 35, 0, 3, 0.5, 7, '#ffffff', '#e0e0e0', '#cccccc', bgHousesCtx); // Door
             drawBlock(skinny1X + 2, 35, 10, 4, 0.5, 8, '#eef5f9', '#a2c8e0', '#6ba1c4', bgHousesCtx); // Window
             
-            // Skinny 2
-            const topC2 = edmontonPalette[3].hex; // Red
+            // Skinny 2 (use complementary Edmonton palette tone)
+            const topC2 = edmontonPalette[(h + 3) % edmontonPalette.length].hex;
             const leftC2 = adjustColor(topC2, -15);
             const rightC2 = adjustColor(topC2, -30);
             drawBlock(skinny2X, 0, 0, 15, 35, 24, topC2, leftC2, rightC2, bgHousesCtx);
             drawPitchedRoof(skinny2X - 1, -2, 24, 17, 39, 10, roofC, rightC, bgHousesCtx);
             drawBlock(skinny2X + 5, 35, 0, 3, 0.5, 7, '#ffffff', '#e0e0e0', '#cccccc', bgHousesCtx); // Door
             drawBlock(skinny2X + 2, 35, 10, 4, 0.5, 8, '#eef5f9', '#a2c8e0', '#6ba1c4', bgHousesCtx); // Window
-            
-            // Note: Currently, the background rendering (driveway) will still draw the standard driveway for lot 5.
-            // We would need to update `renderGroundBackground()` to handle these dynamic lot layouts too.
         } else {
             // Standard Single-Family Home
             drawBlock(i + 5, 0, 0, 28, 35, 18, topC, leftC, rightC, bgHousesCtx);
@@ -825,12 +929,25 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
       const typesY = ['sedanY', 'suvY', 'pickupY'];
       const typesX = ['sedan', 'suv', 'pickup'];
 
+      const currentPhysicalSplit = Math.floor(getSplitInfillCount() / 2);
+      const currentStandardHomes = Math.max(0, 6 - currentPhysicalSplit);
+      const currentTotalHomes = currentStandardHomes + (currentPhysicalSplit * 2);
+      const hasBusStop = currentTotalHomes > 11;
+
+      // Helper to determine if a curbside stall overlaps with the ETS Bus Stop zone (x: 304 to 348)
+      const isOverlappingBusStop = (x: number, w: number) => {
+        const busStopStart = 304;
+        const busStopEnd = 348;
+        return (x + w > busStopStart && x < busStopEnd);
+      };
+
       for (let h = 0; h < 6; h++) {
         const color = edmontonPalette[h].hex;
         const baseX = 10 + h * 55;
+        const lotIsSkinny = isLotSplit(h);
 
-        // Skip driveway spots for lot 5 as it has skinny infills with no front driveways
-        if (h !== 5) {
+        // Skip driveway spots for split infills as they have no front driveways
+        if (!lotIsSkinny) {
           const effectiveCap = Math.min(2, Math.max(1, drivewayCap));
           const drivewaySpotCoords: { x: number; y: number }[] =
             effectiveCap === 1
@@ -855,43 +972,61 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
 
         // Curbside spots
         if (h !== 0) {
-          assignments.push({
-            type: typesX[h % 3],
-            x: baseX - 4.5,
-            y: 94,
-            w: 16,
-            d: 7.5,
-            color
-          });
+          const stall1X = baseX - 4.5;
+          const stall1W = 16;
+          // When the ETS Bus Stop appears (> 11 dwellings), remove any parking spots in front of it
+          if (!hasBusStop || !isOverlappingBusStop(stall1X, stall1W)) {
+            assignments.push({
+              type: typesX[h % 3],
+              x: stall1X,
+              y: 94,
+              w: stall1W,
+              d: 7.5,
+              color
+            });
+          }
           
-          if (h === 5) {
-            // For lot 5, without a driveway, we can fit an extra curbside car!
-            assignments.push({
-              type: typesX[(h + 1) % 3],
-              x: baseX + 13.0,
-              y: 94,
-              w: 16,
-              d: 7.5,
-              color
-            });
-            assignments.push({
-              type: typesX[(h + 2) % 3],
-              x: baseX + 32.5,
-              y: 94,
-              w: 16,
-              d: 7.5,
-              color: edmontonPalette[3].hex // match the red house
-            });
+          if (lotIsSkinny) {
+            // For split skinny lots without a front driveway curb cut, we can fit extra curbside stalls!
+            const stall2X = baseX + 13.0;
+            const stall2W = 16;
+            if (!hasBusStop || !isOverlappingBusStop(stall2X, stall2W)) {
+              assignments.push({
+                type: typesX[(h + 1) % 3],
+                x: stall2X,
+                y: 94,
+                w: stall2W,
+                d: 7.5,
+                color
+              });
+            }
+
+            const stall3X = baseX + 32.5;
+            const stall3W = 16;
+            if (!hasBusStop || !isOverlappingBusStop(stall3X, stall3W)) {
+              assignments.push({
+                type: typesX[(h + 2) % 3],
+                x: stall3X,
+                y: 94,
+                w: stall3W,
+                d: 7.5,
+                color: edmontonPalette[(h + 3) % edmontonPalette.length].hex
+              });
+            }
           } else {
-             // Normal driveway
-            assignments.push({
-              type: typesX[(h + 1) % 3],
-              x: baseX + 13.0,
-              y: 94,
-              w: 16,
-              d: 7.5,
-              color
-            });
+            // Normal driveway
+            const stall2X = baseX + 13.0;
+            const stall2W = 16;
+            if (!hasBusStop || !isOverlappingBusStop(stall2X, stall2W)) {
+              assignments.push({
+                type: typesX[(h + 1) % 3],
+                x: stall2X,
+                y: 94,
+                w: stall2W,
+                d: 7.5,
+                color
+              });
+            }
           }
         }
       }
@@ -899,6 +1034,8 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
     }
 
     let currentDrivewayCap = configRef.current.drivewayCapacity;
+    let currentSplitLots = getSplitInfillCount();
+    let currentTotalHomesCount = (6 - Math.floor(currentSplitLots / 2)) + (Math.floor(currentSplitLots / 2) * 2);
     let houseCarAssignments = generateHouseCarAssignments(currentDrivewayCap);
     let activeIndices = Array.from({ length: houseCarAssignments.length }, (_, i) => i);
 
@@ -1008,6 +1145,134 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
       ctx!.fillStyle = '#11283F';
       ctx!.textBaseline = 'middle';
       ctx!.fillText(label, bubbleX + 13, bubbleY + 8);
+
+      ctx!.restore();
+    }
+
+    function drawParkingAttemptBubble(x: number, y: number, z: number, text: string, status: 'attempt' | 'giveup' | 'success') {
+      const pos = project(x + 8, y, z + 9);
+      ctx!.save();
+
+      ctx!.font = 'bold 8.5px system-ui, -apple-system, sans-serif';
+      const textMetrics = ctx!.measureText(text);
+      const bubbleW = textMetrics.width + 16;
+      const bubbleH = 15;
+      const bubbleX = pos.x - bubbleW / 2;
+      const bubbleY = pos.y - bubbleH - 3;
+
+      const themeColor = status === 'giveup' ? '#E8552D' : status === 'success' ? '#009A44' : '#0081BC';
+
+      // Soft shadow
+      ctx!.fillStyle = 'rgba(0, 0, 0, 0.28)';
+      ctx!.beginPath();
+      if (ctx!.roundRect) {
+        ctx!.roundRect(bubbleX + 1, bubbleY + 1, bubbleW, bubbleH, 4);
+      } else {
+        ctx!.rect(bubbleX + 1, bubbleY + 1, bubbleW, bubbleH);
+      }
+      ctx!.fill();
+
+      // Background Bubble
+      ctx!.fillStyle = '#FFFFFF';
+      ctx!.strokeStyle = themeColor;
+      ctx!.lineWidth = 1.3;
+      ctx!.beginPath();
+      if (ctx!.roundRect) {
+        ctx!.roundRect(bubbleX, bubbleY, bubbleW, bubbleH, 4);
+      } else {
+        ctx!.rect(bubbleX, bubbleY, bubbleW, bubbleH);
+      }
+      ctx!.fill();
+      ctx!.stroke();
+
+      // Pointer triangle
+      ctx!.beginPath();
+      ctx!.moveTo(pos.x - 3, bubbleY + bubbleH);
+      ctx!.lineTo(pos.x, bubbleY + bubbleH + 4);
+      ctx!.lineTo(pos.x + 3, bubbleY + bubbleH);
+      ctx!.fillStyle = '#FFFFFF';
+      ctx!.fill();
+      ctx!.beginPath();
+      ctx!.moveTo(pos.x - 3, bubbleY + bubbleH);
+      ctx!.lineTo(pos.x, bubbleY + bubbleH + 4);
+      ctx!.lineTo(pos.x + 3, bubbleY + bubbleH);
+      ctx!.strokeStyle = themeColor;
+      ctx!.lineWidth = 1.3;
+      ctx!.stroke();
+
+      // Icon symbol dot
+      ctx!.fillStyle = themeColor;
+      ctx!.beginPath();
+      ctx!.arc(bubbleX + 6.5, bubbleY + 7.5, 2.5, 0, Math.PI * 2);
+      ctx!.fill();
+
+      // Text label
+      ctx!.fillStyle = '#11283F';
+      ctx!.textBaseline = 'middle';
+      ctx!.fillText(text, bubbleX + 12, bubbleY + 8);
+
+      ctx!.restore();
+    }
+
+    function drawBusBubble(x: number, y: number, z: number, text: string) {
+      const pos = project(x + 16, y, z + 12);
+      ctx!.save();
+
+      ctx!.font = 'bold 8.5px system-ui, -apple-system, sans-serif';
+      const textMetrics = ctx!.measureText(text);
+      const bubbleW = textMetrics.width + 16;
+      const bubbleH = 15;
+      const bubbleX = pos.x - bubbleW / 2;
+      const bubbleY = pos.y - bubbleH - 3;
+
+      // Soft shadow
+      ctx!.fillStyle = 'rgba(0, 0, 0, 0.28)';
+      ctx!.beginPath();
+      if (ctx!.roundRect) {
+        ctx!.roundRect(bubbleX + 1, bubbleY + 1, bubbleW, bubbleH, 4);
+      } else {
+        ctx!.rect(bubbleX + 1, bubbleY + 1, bubbleW, bubbleH);
+      }
+      ctx!.fill();
+
+      // Background Bubble (ETS Blue border)
+      ctx!.fillStyle = '#FFFFFF';
+      ctx!.strokeStyle = '#005087';
+      ctx!.lineWidth = 1.3;
+      ctx!.beginPath();
+      if (ctx!.roundRect) {
+        ctx!.roundRect(bubbleX, bubbleY, bubbleW, bubbleH, 4);
+      } else {
+        ctx!.rect(bubbleX, bubbleY, bubbleW, bubbleH);
+      }
+      ctx!.fill();
+      ctx!.stroke();
+
+      // Pointer triangle
+      ctx!.beginPath();
+      ctx!.moveTo(pos.x - 3, bubbleY + bubbleH);
+      ctx!.lineTo(pos.x, bubbleY + bubbleH + 4);
+      ctx!.lineTo(pos.x + 3, bubbleY + bubbleH);
+      ctx!.fillStyle = '#FFFFFF';
+      ctx!.fill();
+      ctx!.beginPath();
+      ctx!.moveTo(pos.x - 3, bubbleY + bubbleH);
+      ctx!.lineTo(pos.x, bubbleY + bubbleH + 4);
+      ctx!.lineTo(pos.x + 3, bubbleY + bubbleH);
+      ctx!.strokeStyle = '#005087';
+      ctx!.lineWidth = 1.3;
+      ctx!.stroke();
+
+      // Bus icon or bullet
+      ctx!.fillStyle = '#005087';
+      ctx!.beginPath();
+      ctx!.arc(bubbleX + 6.5, bubbleY + 7.5, 2.5, 0, Math.PI * 2);
+      ctx!.fill();
+
+      // Text label
+      ctx!.fillStyle = '#002B49';
+      ctx!.textBaseline = 'middle';
+      ctx!.fillText(text, bubbleX + 12, bubbleY + 8);
 
       ctx!.restore();
     }
@@ -1282,6 +1547,61 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
           // Box (White)
           drawBlock(x + 7, y, zOffset + 1.5, 17, 8, 9.5, '#f0f2f5', '#dcdfe3', '#c8cbcf');
         }
+      } else if (type === 'etsBus') {
+        // Edmonton Transit Service (ETS) Transit Bus
+        // Blue upper crown & roof: #005087 / #0081BC / #004070
+        // Light silver/white lower body: #d9dfe5 / #cbd2d9 / #b8c1cb
+        // Dark bumper / front bike rack / window glazing
+        const etsBlue = '#005087';
+        const etsBlueLight = '#0066aa';
+        const etsBlueDark = '#003a63';
+        const etsSilver = '#d9dfe5';
+        const etsSilverDark = '#b8c1cb';
+        const etsGlass = '#1a3347';
+        const amberLed = '#ffb300';
+        const bikeRack = '#2b2b2b';
+
+        drawFlatRect(x - 1, y - 0.5, 36, 10, 'rgba(0,0,0,0.32)');
+
+        if (!isFlipped) {
+          // Tires (Front + Dual Rear)
+          drawBlock(x + 5, y - 0.5, zOffset, 4, 1.2, 2.5, tire, tire, tire);
+          drawBlock(x + 24, y - 0.5, zOffset, 5, 1.2, 2.5, tire, tire, tire);
+          drawBlock(x + 5, y + 8.2, zOffset, 4, 1.2, 2.5, tire, tire, tire);
+          drawBlock(x + 24, y + 8.2, zOffset, 5, 1.2, 2.5, tire, tire, tire);
+
+          // Lower body (Silver/Grey)
+          drawBlock(x, y, zOffset + 1.2, 33, 9, 3.8, etsSilver, etsSilverDark, etsSilverDark);
+
+          // Dark front bumper
+          drawBlock(x + 32, y + 0.5, zOffset + 0.8, 1.5, 8, 2.0, '#1a1a1a', '#111111', '#111111');
+
+          // Bike rack on front bumper
+          drawBlock(x + 33.5, y + 2, zOffset + 1.2, 2.0, 5, 1.4, bikeRack, bikeRack, bikeRack);
+
+          // Passenger window ribbon (Dark tinted glass with slim pillars)
+          drawBlock(x + 1, y + 0.4, zOffset + 5.0, 31, 8.2, 3.2, etsGlass, etsGlass, etsGlass);
+
+          // Upper body & Aerodynamic Roof Pod (ETS Edmonton Blue)
+          drawBlock(x, y, zOffset + 8.2, 33, 9, 2.4, etsBlue, etsBlueLight, etsBlueDark);
+          // Streamlined AC / HVAC roof hump
+          drawBlock(x + 6, y + 1.2, zOffset + 10.6, 18, 6.6, 1.6, etsBlue, etsBlueLight, etsBlueDark);
+
+          // Front LED Destination Sign: "126 Westmount / ETS" (Amber LED)
+          drawBlock(x + 32, y + 2, zOffset + 8.6, 0.8, 5, 1.4, amberLed, amberLed, amberLed);
+
+          // Windshield with subtle reflection
+          drawBlock(x + 31.5, y + 0.8, zOffset + 5.0, 1.2, 7.4, 3.4, '#81a3ba', etsGlass, etsGlass);
+
+          // Headlights
+          drawBlock(x + 32.8, y + 1, zOffset + 2.4, 0.4, 1.8, 1.0, '#ffffff', '#ffffff', '#ffffff');
+          drawBlock(x + 32.8, y + 6.2, zOffset + 2.4, 0.4, 1.8, 1.0, '#ffffff', '#ffffff', '#ffffff');
+        } else {
+          // Flipped bus (riot / fire state)
+          drawBlock(x, y, zOffset + 2, 33, 9, 6.5, '#222222', '#151515', '#0d0d0d');
+          drawBlock(x + 5, y - 1, zOffset + 8.8, 4, 1.2, 2.5, tire, tire, tire);
+          drawBlock(x + 24, y - 1, zOffset + 8.8, 5, 1.2, 2.5, tire, tire, tire);
+        }
       }
     }
 
@@ -1329,6 +1649,60 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
         }
         ctx!.restore();
       }
+    }
+
+    function drawBusStopShelter(x: number, y: number) {
+      // Concrete boarding & waiting pad extending across the boulevard to the curb edge (y: 80 to 93)
+      drawFlatRect(x - 2, y - 1, 25, 13.5, '#c5cbd2');
+      // High-visibility tactile yellow warning paving strip along the curb edge (y = 91.8 to 93)
+      drawFlatRect(x - 2, y + 11.2, 25, 1.2, '#ffc72c');
+
+      // Four dark steel stanchion posts for the bus stop shelter (y: y + 0.8 and y + 7.5)
+      const postColor = '#1f2937';
+      drawBlock(x + 1, y + 0.8, 0, 1.2, 1.2, 9.5, postColor, postColor, postColor);
+      drawBlock(x + 17, y + 0.8, 0, 1.2, 1.2, 9.5, postColor, postColor, postColor);
+      drawBlock(x + 1, y + 7.2, 0, 1.2, 1.2, 9.5, postColor, postColor, postColor);
+      drawBlock(x + 17, y + 7.2, 0, 1.2, 1.2, 9.5, postColor, postColor, postColor);
+
+      // Wooden waiting bench inside shelter
+      drawBlock(x + 3.5, y + 1.8, 0, 11, 2.5, 2.8, '#b45309', '#92400e', '#78350f');
+
+      // Rear tempered glass wind-screen panels
+      drawBlock(x + 2, y + 1.0, 0.5, 15, 0.6, 8.5, 'rgba(180, 220, 245, 0.45)', 'rgba(140, 190, 225, 0.5)', 'rgba(140, 190, 225, 0.5)');
+
+      // Left wind-screen panel
+      drawBlock(x + 1.2, y + 1.6, 0.5, 0.6, 5.5, 8.5, 'rgba(180, 220, 245, 0.45)', 'rgba(140, 190, 225, 0.5)', 'rgba(140, 190, 225, 0.5)');
+
+      // Curved / cantilevered canopy roof (ETS Blue top fascia)
+      drawBlock(x - 0.5, y + 0.3, 9.5, 20, 9.2, 1.2, '#005087', '#003a63', '#002844');
+      drawBlock(x - 0.2, y + 0.6, 10.7, 19.4, 8.6, 0.6, '#0081bc', '#0066aa', '#005087');
+
+      // ETS Bus Stop Sign Post at the curb edge of the boulevard
+      const signPostX = x + 20.5;
+      const signPostY = y + 9.5;
+      drawBlock(signPostX, signPostY, 0, 0.8, 0.8, 12, '#374151', '#1f2937', '#111827');
+      // Sign plate (ETS Blue and White bus symbol) facing oncoming street traffic
+      drawBlock(signPostX - 0.4, signPostY - 0.2, 9.8, 1.6, 2.2, 2.5, '#005087', '#003a63', '#0081bc');
+      drawBlock(signPostX - 0.4, signPostY - 0.1, 10.6, 1.6, 2.0, 1.2, '#ffffff', '#e5e7eb', '#ffffff');
+
+      // Floating Stop Label
+      const labelPos = project(x + 10, y + 5, 16);
+      ctx!.save();
+      ctx!.font = 'bold 8.5px system-ui, -apple-system, sans-serif';
+      const labelText = 'ETS Bus Stop';
+      const tw = ctx!.measureText(labelText).width;
+      ctx!.fillStyle = 'rgba(0, 43, 73, 0.85)';
+      if (ctx!.roundRect) {
+        ctx!.roundRect(labelPos.x - tw / 2 - 4, labelPos.y - 7, tw + 8, 13, 3);
+      } else {
+        ctx!.rect(labelPos.x - tw / 2 - 4, labelPos.y - 7, tw + 8, 13);
+      }
+      ctx!.fill();
+      ctx!.fillStyle = '#ffffff';
+      ctx!.textAlign = 'center';
+      ctx!.textBaseline = 'middle';
+      ctx!.fillText(labelText, labelPos.x, labelPos.y);
+      ctx!.restore();
     }
 
     function drawCyclist(x: number, y: number, z: number, bikeColor: string) {
@@ -1402,13 +1776,43 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
       searchingBubbleTimer?: number;
       searchScanTimer?: number;
       shouldRetire?: boolean;
+      isExtraBus?: boolean;
+      busDwellTimer?: number;
+      busStopState?: 'approaching' | 'dwelling' | 'departing';
+      parkingState?: 'cruising' | 'found_spot' | 'attempting_reverse' | 'giving_up' | 'docking' | 'parked';
+      parkingTimer?: number;
+      parkingTargetSlot?: any;
+      parkingBubbleText?: string;
+      parkingAttemptTimer?: number;
+      spaceRatio?: number;
     }
 
     // Baseline through-traffic vehicles (constant through flow across the neighborhood)
     const throughVehicles: RoadObstacle[] = [
       { type: 'sedan', x: -40, y: 110, baseY: 110, targetY: 110, w: 15, d: 7, baseSpeed: 1.25, speed: 1.25, color: edmontonPalette[0].hex, stuckTimer: 0, honkCooldown: 0, honkBubbleTimer: 0, isCircling: false },
-      { type: 'boxTruck', x: -360, y: 124, baseY: 124, targetY: 124, w: 24, d: 8.5, baseSpeed: 0.85, speed: 0.85, color: '', stuckTimer: 0, honkCooldown: 0, honkBubbleTimer: 0, isCircling: false }
+      { type: 'etsBus', x: -220, y: 110, baseY: 110, targetY: 110, w: 33, d: 9, baseSpeed: 0.95, speed: 0.95, color: '#005087', stuckTimer: 0, honkCooldown: 0, honkBubbleTimer: 0, isCircling: false, busStopState: 'approaching' },
+      { type: 'boxTruck', x: -420, y: 124, baseY: 124, targetY: 124, w: 24, d: 8.5, baseSpeed: 0.85, speed: 0.85, color: '', stuckTimer: 0, honkCooldown: 0, honkBubbleTimer: 0, isCircling: false }
     ];
+
+    // Secondary frequent ETS Bus (injected when dwellings > 10)
+    const extraEtsBus: RoadObstacle = {
+      type: 'etsBus',
+      x: -360,
+      y: 110,
+      baseY: 110,
+      targetY: 110,
+      w: 33,
+      d: 9,
+      baseSpeed: 0.95,
+      speed: 0.95,
+      color: '#005087',
+      stuckTimer: 0,
+      honkCooldown: 0,
+      honkBubbleTimer: 0,
+      isCircling: false,
+      isExtraBus: true,
+      busStopState: 'approaching'
+    };
 
     // Cruising / Circling vehicle pool: activates as street parking fills up, creating realistic traffic searching for spots
     const cruisingVehiclePool: RoadObstacle[] = [
@@ -1423,7 +1827,9 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
     let lastReportedCircling = -1;
     let lastReportedDemand = -1;
     let lastReportedPct = -1;
+    let lastReportedStallsCapacity = -1;
     let lastDrawnGaugeCars = -1;
+    let lastDrawnGaugeCap = -1;
     let emergencyVehicles: RoadObstacle[] = [];
 
     interface DeliveryVan extends RoadObstacle {
@@ -1501,10 +1907,11 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
       return false;
     }
 
-    function drawGauge(curbsideCars: number) {
+    function drawGauge(curbsideCars: number, totalLegalStalls: number) {
       if (!gaugeCtx || !gaugeCanvas) return;
-      if (curbsideCars === lastDrawnGaugeCars) return;
+      if (curbsideCars === lastDrawnGaugeCars && totalLegalStalls === lastDrawnGaugeCap) return;
       lastDrawnGaugeCars = curbsideCars;
+      lastDrawnGaugeCap = totalLegalStalls;
       gaugeCtx.clearRect(0, 0, gaugeCanvas.width, gaugeCanvas.height);
 
       const cx = gaugeCanvas.width / 2;
@@ -1512,7 +1919,7 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
       const radius = Math.min(cx - 12, cy - 14); // Reduced radius to make room for text at top
       const lineWidth = Math.max(5, Math.round(radius * 0.16));
 
-      const percentage = (curbsideCars / TOTAL_LEGAL_CURBSIDE_STALLS) * 100;
+      const percentage = (curbsideCars / totalLegalStalls) * 100;
       const clampedPct = Math.min(200, Math.max(0, percentage));
 
       const startAngle = Math.PI;
@@ -1607,43 +2014,156 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
       ctx!.globalAlpha = 1.0;
     }
 
-    function updateVanState(van: DeliveryVan, totalParked: number, activeRoadProtesters: { x: number; y: number }[] = []) {
+    // Robust lateral (Y-axis) overlap check with safety margin
+    function hasLateralOverlap(y1: number, d1: number, y2: number, d2: number, margin = 0.5): boolean {
+      return y1 < y2 + d2 + margin && y1 + d1 > y2 - margin;
+    }
+
+    // Dynamic safety buffer based on vehicle types and closing speed
+    function getSafetyBuffer(A: RoadObstacle, B?: RoadObstacle): number {
+      let base = 5.5;
+      if (A.type === 'bike' || A.type === 'scooter') {
+        base = 3.5;
+      } else if (A.type === 'etsBus') {
+        base = 10.0;
+      } else if (A.type === 'boxTruck' || A.type === 'deliveryVan' || A.type === 'firetruck') {
+        base = 7.5;
+      } else if (A.type === 'police' || A.isEmergency) {
+        base = 6.5;
+      } else {
+        base = 5.5;
+      }
+
+      // Dynamic closing speed buffer: faster-moving vehicles start decelerating earlier
+      const closingSpeed = Math.max(0, (A.speed || A.baseSpeed || 0) - ((B && B.speed) || 0));
+      return base + closingSpeed * 4.5;
+    }
+
+    // Side-swipe / blind-spot guard: ensures moving laterally to candidateY does not collide with any obstacle
+    function canChangeLane(A: RoadObstacle, candidateY: number, obstacles: RoadObstacle[]): boolean {
+      const minX = A.x - 3.0;
+      const maxX = A.x + A.w + 3.0;
+
+      for (let j = 0; j < obstacles.length; j++) {
+        const B = obstacles[j];
+        if (A === B) continue;
+        if (B.parkingState === 'parked' && A.parkingTargetSlot === B) continue;
+        if (B.isStatic && A.parkingTargetSlot && Math.abs(A.parkingTargetSlot.x - B.x) < 4 && Math.abs(A.parkingTargetSlot.y - B.y) < 2) continue;
+
+        if (hasLateralOverlap(candidateY, A.d, B.y, B.d, 0.4)) {
+          // Check longitudinal proximity
+          if (B.x < maxX && B.x + B.w > minX) {
+            return false; // Space in target lane is occupied!
+          }
+        }
+      }
+      return true;
+    }
+
+    // Unified forward obstacle detection & non-penetration clamping
+    function checkForwardObstacle(
+      A: RoadObstacle,
+      proposedSpeed: number,
+      obstacles: RoadObstacle[],
+      protesters: { x: number; y: number }[] = []
+    ): { safeSpeed: number; targetX: number; blocking: RoadObstacle | null } {
+      let targetX = A.x + proposedSpeed;
+      let safeSpeed = proposedSpeed;
+      let blocking: RoadObstacle | null = null;
+
+      for (let j = 0; j < obstacles.length; j++) {
+        const B = obstacles[j];
+        if (A === B) continue;
+
+        // When ETS Bus is pulling into/dwelling at bus stop (x: 250-345), ignore static parked stalls outside the stop
+        if (A.type === 'etsBus' && B.isStatic && (A.busStopState === 'approaching' || A.busStopState === 'dwelling')) {
+          if (B.x < 240 || B.x > 350) continue;
+        }
+
+        // When a car is parallel parking, ignore its targeted empty stall
+        if (A.parkingState && A.parkingState !== 'cruising' && B.isStatic) {
+          if (A.parkingTargetSlot && Math.abs(A.parkingTargetSlot.x - B.x) < 4 && Math.abs(A.parkingTargetSlot.y - B.y) < 2) {
+            continue;
+          }
+        }
+
+        if (!hasLateralOverlap(A.y, A.d, B.y, B.d, 0.5)) continue;
+
+        // Check if B is ahead of A or overlapping forward
+        const bAhead = (B.x > A.x) || (B.x + B.w > A.x + A.w && B.x >= A.x - 2.0);
+        if (!bAhead) continue;
+
+        const currentDist = B.x - (A.x + A.w);
+        const reqBuffer = getSafetyBuffer(A, B);
+        const minHaltGap = Math.min(reqBuffer, Math.max(2.5, reqBuffer * 0.45));
+
+        if (targetX + A.w + minHaltGap > B.x || currentDist < reqBuffer) {
+          // Enforce strict non-penetration
+          const maxAllowedX = Math.max(A.x, B.x - A.w - minHaltGap);
+          targetX = Math.min(targetX, maxAllowedX);
+
+          if (currentDist <= minHaltGap + 0.5 || targetX <= A.x + 0.05) {
+            targetX = A.x;
+            safeSpeed = 0;
+          } else {
+            const ratio = Math.max(0, (currentDist - minHaltGap) / Math.max(1, reqBuffer - minHaltGap));
+            safeSpeed = Math.min(safeSpeed, (B.speed || 0) * 0.7 + proposedSpeed * ratio * 0.3);
+          }
+
+          blocking = B;
+        }
+      }
+
+      // Protesters / pedestrians blocking road lanes
+      for (let k = 0; k < protesters.length; k++) {
+        const ped = protesters[k];
+        if (Math.abs(A.y - ped.y) < 8.5) {
+          if (ped.x > A.x && ped.x - (A.x + A.w) < getSafetyBuffer(A) + 5.0) {
+            const minHaltGap = 4.0;
+            const maxAllowedX = Math.max(A.x, ped.x - A.w - minHaltGap);
+            targetX = Math.min(targetX, maxAllowedX);
+            safeSpeed = 0;
+            blocking = { x: ped.x, y: ped.y, w: 2, d: 2, type: 'protester' };
+            break;
+          }
+        }
+      }
+
+      return { safeSpeed, targetX, blocking };
+    }
+
+    function updateVanState(
+      van: DeliveryVan,
+      totalParked: number,
+      activeRoadProtesters: { x: number; y: number }[] = [],
+      allObstacles: RoadObstacle[] = []
+    ) {
       if (van.state === 'APPROACHING') {
-        van.speed = van.baseSpeed;
         if (van.x > van.targetStopX - 60) {
           const occupied = isCurbsideSpotOccupied(van.targetStopX, totalParked);
           van.targetY = occupied ? 104 : 94;
         }
 
-        if (Math.abs(van.y - (van.targetY || 104)) > 0.5) {
-          van.y += ((van.targetY || 104) > van.y ? 1 : -1) * 0.35;
-        } else {
-          van.y = van.targetY || 104;
-        }
-
-        // Check if protesters ahead on the road are blocking the van
-        const isBlockedByProtester = activeRoadProtesters.some(
-          p => Math.abs(van.y - p.y) < 8.5 && p.x > van.x && p.x - (van.x + van.w) < 14
-        );
-        
-        // Check if another van is ahead
-        let isBlockedByVan = false;
-        for (let j = 0; j < deliveryVansList.length; j++) {
-          const otherVan = deliveryVansList[j];
-          if (otherVan === van || otherVan.x <= van.x) continue;
-          if (Math.abs(van.y - otherVan.y) < 8.5 && otherVan.x - (van.x + van.w) < 20) {
-             isBlockedByVan = true;
-             break;
+        const targetY = van.targetY || 104;
+        if (Math.abs(van.y - targetY) > 0.05) {
+          const nextY = van.y + (targetY > van.y ? 1 : -1) * Math.min(0.35, Math.abs(targetY - van.y));
+          if (canChangeLane(van, nextY, allObstacles)) {
+            van.y = nextY;
           }
-        }
-
-        if (isBlockedByProtester || isBlockedByVan) {
-          van.speed = 0;
         } else {
-          van.x += van.speed || 1;
+          van.y = targetY;
         }
 
-        if (van.x >= van.targetStopX) {
+        const { safeSpeed, targetX } = checkForwardObstacle(
+          van,
+          van.baseSpeed,
+          allObstacles,
+          activeRoadProtesters
+        );
+
+        van.speed = safeSpeed;
+
+        if (targetX >= van.targetStopX) {
           van.x = van.targetStopX;
           van.speed = 0;
           van.state = 'STOPPED';
@@ -1651,14 +2171,14 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
           van.driver.x = van.x + 10;
           van.driver.y = van.y - 2;
           van.driver.hasPackage = true;
-          
+
           const targetHouse = van.targetHouse;
           const houseBaseX = 10 + targetHouse * 55;
           let apronX = houseBaseX + 39.75;
           if (targetHouse === 5) {
-             apronX = 10 + 4 * 55 + 39.75; // Use neighbor's driveway for skinny lot
+            apronX = 10 + 4 * 55 + 39.75; // Use neighbor's driveway for skinny lot
           }
-          
+
           van.driver.path = [
             { x: van.driver.x, y: van.driver.y },
             { x: apronX, y: van.driver.y },
@@ -1667,6 +2187,8 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
             { x: van.driver.targetDoorX, y: 35 }
           ];
           van.driver.pathIdx = 1;
+        } else {
+          van.x = targetX;
         }
       } else if (van.state === 'STOPPED') {
         van.speed = 0;
@@ -1699,11 +2221,11 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
           const houseBaseX = 10 + targetHouse * 55;
           let apronX = houseBaseX + 39.75;
           if (targetHouse === 5) {
-             apronX = 10 + 4 * 55 + 39.75;
+            apronX = 10 + 4 * 55 + 39.75;
           }
           const vanDoorX = van.x + 10;
           const vanDoorY = van.y - 2;
-          
+
           van.driver.path = [
             { x: van.driver.targetDoorX, y: 35 },
             { x: van.driver.targetDoorX, y: 74 },
@@ -1734,35 +2256,25 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
           van.state = 'LEAVING';
         }
       } else if (van.state === 'LEAVING') {
-        van.targetY = 104;
-        if (Math.abs(van.y - 104) > 0.5) {
-          van.y += (104 > van.y ? 1 : -1) * 0.35;
-        } else {
-          van.y = 104;
-        }
-
-        van.speed = van.baseSpeed;
-        // Check if protesters ahead on the road are blocking the van
-        const isBlockedByProtester = activeRoadProtesters.some(
-          p => Math.abs(van.y - p.y) < 8.5 && p.x > van.x && p.x - (van.x + van.w) < 14
-        );
-        
-        // Check if another van is ahead
-        let isBlockedByVan = false;
-        for (let j = 0; j < deliveryVansList.length; j++) {
-          const otherVan = deliveryVansList[j];
-          if (otherVan === van || otherVan.x <= van.x) continue;
-          if (Math.abs(van.y - otherVan.y) < 8.5 && otherVan.x - (van.x + van.w) < 20) {
-             isBlockedByVan = true;
-             break;
+        const targetY = 104;
+        if (Math.abs(van.y - targetY) > 0.05) {
+          const nextY = van.y + (targetY > van.y ? 1 : -1) * Math.min(0.35, Math.abs(targetY - van.y));
+          if (canChangeLane(van, nextY, allObstacles)) {
+            van.y = nextY;
           }
+        } else {
+          van.y = targetY;
         }
 
-        if (isBlockedByProtester || isBlockedByVan) {
-          van.speed = 0;
-        } else {
-          van.x += van.speed || 1;
-        }
+        const { safeSpeed, targetX } = checkForwardObstacle(
+          van,
+          van.baseSpeed,
+          allObstacles,
+          activeRoadProtesters
+        );
+
+        van.speed = safeSpeed;
+        van.x = targetX;
 
         if (van.x > blockLength + 120) {
           van.state = 'COOLDOWN';
@@ -1775,7 +2287,19 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
           van.targetHouse = newHouse;
           van.targetStopX = 10 + newHouse * 55 + 35;
           van.driver.targetDoorX = 10 + newHouse * 55 + 24;
-          van.x = -150 - Math.random() * 60;
+
+          let spawnX = -150 - Math.random() * 60;
+          for (let j = 0; j < allObstacles.length; j++) {
+            const obs = allObstacles[j];
+            if (obs === van) continue;
+            if (obs.x < 0 && Math.abs(obs.y - 104) < 10) {
+              if (obs.x > spawnX - van.w - 20 && obs.x < spawnX + van.w + 20) {
+                spawnX = Math.min(spawnX, obs.x - van.w - 25);
+              }
+            }
+          }
+
+          van.x = spawnX;
           van.y = 104;
           van.targetY = 104;
           van.state = 'APPROACHING';
@@ -1785,6 +2309,19 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
 
     const allRoadObstacles: RoadObstacle[] = [];
     let lastReshuffleTrigger = reshuffleTriggerRef.current;
+    let busStopPassengerCount = 2; // 2 passengers waiting initially
+    let busStopPassengerRespawnTimer = 0;
+
+    // Pedestrians walking from their successfully parallel parked car to their house
+    const parkedWalkers: Array<{
+      x: number;
+      y: number;
+      targetX: number;
+      targetY: number;
+      color: string;
+      active: boolean;
+      state: 'curb_to_sidewalk' | 'sidewalk_to_door' | 'entered';
+    }> = [];
 
     function animate() {
       ctx!.clearRect(0, 0, canvas!.width, canvas!.height);
@@ -1795,37 +2332,56 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
         shuffleSlots();
       }
 
-      // Check if driveway capacity changed
-      if (currentDrivewayCap !== configRef.current.drivewayCapacity) {
+      // Check if driveway capacity or split infill lots changed
+      const newSplitLots = getSplitInfillCount();
+      const newTotalHomesCount = (6 - Math.floor(newSplitLots / 2)) + (Math.floor(newSplitLots / 2) * 2);
+      if (currentDrivewayCap !== configRef.current.drivewayCapacity || currentSplitLots !== newSplitLots || (currentTotalHomesCount > 11) !== (newTotalHomesCount > 11)) {
         currentDrivewayCap = configRef.current.drivewayCapacity;
+        currentSplitLots = newSplitLots;
+        currentTotalHomesCount = newTotalHomesCount;
+        rebuildResidentsAndFlowers();
         houseCarAssignments = generateHouseCarAssignments(currentDrivewayCap);
         activeIndices = Array.from({ length: houseCarAssignments.length }, (_, i) => i);
         shuffleSlots();
         renderGroundBackground();
+        renderHousesBackground();
       }
 
-      const activeHouseholdCars = Math.round(configRef.current.householdCarsPerHome * 6);
-      const activeVisitorCars = Math.round(configRef.current.visitorPassesPerHome * 6);
+      const numPhysicalLotsSplit = Math.floor(currentSplitLots / 2);
+      const standardLotsCount = Math.max(0, 6 - numPhysicalLotsSplit);
+      const splitHomesCount = numPhysicalLotsSplit * 2;
+      const simTotalDwellings = standardLotsCount + splitHomesCount;
+
+      const activeHouseholdCars = Math.round(configRef.current.householdCarsPerHome * simTotalDwellings);
+      const activeVisitorCars = Math.round(configRef.current.visitorPassesPerHome * simTotalDwellings);
       const totalParkedCars = activeHouseholdCars + activeVisitorCars;
       const totalToRender = Math.min(houseCarAssignments.length, totalParkedCars);
 
-      const weeklyDeliveries = Math.round(configRef.current.deliveriesPerHomePerWeek * 6);
+      const weeklyDeliveries = Math.round(configRef.current.deliveriesPerHomePerWeek * simTotalDwellings);
       updateDeliveryPool(weeklyDeliveries);
 
-      const totalDrivewaySpots = Math.min(2, Math.max(1, currentDrivewayCap)) * 6;
+      const totalDrivewaySpots = Math.min(2, Math.max(1, currentDrivewayCap)) * standardLotsCount;
       const curbsideDemand = Math.max(0, totalParkedCars - totalDrivewaySpots);
-      const gaugePercent = (curbsideDemand / TOTAL_LEGAL_CURBSIDE_STALLS) * 100;
+      // When a lot is split for infill and a driveway is removed, curbside total space for parking goes up by 1 car (continuous curb).
+      // When the ETS bus stop appears (> 11 dwellings), curbside parking stalls in front of it are removed (1 stall deducted).
+      const busStopStallDeduction = simTotalDwellings > 11 ? 1 : 0;
+      const currentLegalCurbsideStalls = Math.max(1, BASE_LEGAL_CURBSIDE_STALLS + numPhysicalLotsSplit - busStopStallDeduction);
+      const gaugePercent = (curbsideDemand / currentLegalCurbsideStalls) * 100;
 
       if (curbsideDemand !== lastReportedDemand) {
         lastReportedDemand = curbsideDemand;
         setCurbsideDemandCount(curbsideDemand);
+      }
+      if (currentLegalCurbsideStalls !== lastReportedStallsCapacity) {
+        lastReportedStallsCapacity = currentLegalCurbsideStalls;
+        setCurbsideStallsCapacity(currentLegalCurbsideStalls);
       }
       const roundedPct = Math.round(gaugePercent);
       if (roundedPct !== lastReportedPct) {
         lastReportedPct = roundedPct;
         setCurbsidePct(roundedPct);
       }
-      drawGauge(curbsideDemand);
+      drawGauge(curbsideDemand, currentLegalCurbsideStalls);
 
       // Cruising Traffic Management: As parking fills up on the street, traffic increases as more cars circle looking for parking
       let targetCirclingCount = 0;
@@ -1885,6 +2441,29 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
       if (currentCirclingCount !== lastReportedCircling) {
         lastReportedCircling = currentCirclingCount;
         setCirclingCarCount(currentCirclingCount);
+      }
+
+      // ETS Transit Frequency: When there are greater than 10 dwellings on the street,
+      // transit demand triggers higher ETS bus frequency (extra bus running in rotation)
+      const hasHighTransitDemand = simTotalDwellings > 10;
+      const isExtraBusActive = activeVehicles.includes(extraEtsBus);
+
+      if (hasHighTransitDemand && !isExtraBusActive) {
+        extraEtsBus.x = -360 - Math.random() * 80;
+        extraEtsBus.y = 110;
+        extraEtsBus.baseY = 110;
+        extraEtsBus.targetY = 110;
+        extraEtsBus.speed = 0.95;
+        extraEtsBus.isBurning = false;
+        extraEtsBus.busStopState = 'approaching';
+        extraEtsBus.busDwellTimer = 0;
+        extraEtsBus.searchingBubbleTimer = 90;
+        activeVehicles.push(extraEtsBus);
+      } else if (!hasHighTransitDemand && isExtraBusActive) {
+        const extraIdx = activeVehicles.indexOf(extraEtsBus);
+        if (extraIdx !== -1 && (extraEtsBus.x > blockLength + 40 || extraEtsBus.x < 0)) {
+          activeVehicles.splice(extraIdx, 1);
+        }
       }
 
       if (alarmCooldown > 0) {
@@ -1983,12 +2562,47 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
         if (harmonyTimer >= 1.5 && !isHarmony) {
           isHarmony = true;
           setIsHarmonyActive(true);
+
+          triggerVisualAudioAlert('⭐ Excellence: City Planning Commendation Awarded', 'medal');
+
+          // Trigger Commendation Audio precisely when Excellence scene activates
+          if (soundEnabledRef.current && !window.__commendationAudioPlayed) {
+            window.__commendationAudioPlayed = true;
+
+            if (!window.__commendationAudio) {
+              window.__commendationAudio = new Audio('/audio/city_planning_commendation.mp3');
+              window.__commendationAudio.volume = 0.35;
+              window.__commendationAudio.addEventListener('error', () => {
+                if (window.__commendationAudio && window.__commendationAudio.src.includes('/audio/city_planning_commendation.mp3')) {
+                  window.__commendationAudio.src = '/good_neighbourhood.mp3';
+                  window.__commendationAudio.load();
+                  if (soundEnabledRef.current) window.__commendationAudio.play().catch(() => {});
+                }
+              });
+            } else {
+              window.__commendationAudio.volume = 0.35;
+            }
+
+            window.__commendationAudio.currentTime = 0;
+            const playPromise = window.__commendationAudio.play();
+            if (playPromise !== undefined) {
+              playPromise.catch(e => {
+                console.warn('Commendation audio playback blocked by browser autoplay policy. Pending user interaction.', e);
+                window.__commendationAudioPending = true;
+              });
+            }
+          }
         }
       } else {
         harmonyTimer = Math.max(0, harmonyTimer - 1 / 60);
         if (harmonyTimer <= 0 && isHarmony) {
           isHarmony = false;
           setIsHarmonyActive(false);
+          window.__commendationAudioPlayed = false;
+          if (window.__commendationAudio) {
+            window.__commendationAudio.pause();
+            window.__commendationAudio.currentTime = 0;
+          }
         }
       }
 
@@ -2012,9 +2626,30 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
          window.__riotAudioPlayed = true;
          
          if (!window.__riotAudio) {
-           window.__riotAudio = new Audio(typeof window !== 'undefined' && window.__agentArtifactAudioUrl ? window.__agentArtifactAudioUrl : '/audio/riot_noise.mp3');
-           window.__riotAudio.volume = 0.8;
+           window.__riotAudio = new Audio(
+             typeof window !== 'undefined' && window.__agentArtifactAudioUrl
+               ? window.__agentArtifactAudioUrl
+               : '/audio/edmonton_news_report_riot.mp3'
+           );
+           window.__riotAudio.volume = 0.85;
            window.__riotAudio.loop = true;
+           window.__riotAudio.addEventListener('error', () => {
+             if (window.__riotAudio) {
+               if (window.__riotAudio.src.includes('/audio/edmonton_news_report_riot.mp3')) {
+                 window.__riotAudio.src = '/audio/riot_news_report.mp3';
+                 window.__riotAudio.load();
+                 if (soundEnabledRef.current) window.__riotAudio.play().catch(() => {});
+               } else if (window.__riotAudio.src.includes('/audio/riot_news_report.mp3')) {
+                 window.__riotAudio.src = '/edmonton_news_report_riot.mp3';
+                 window.__riotAudio.load();
+                 if (soundEnabledRef.current) window.__riotAudio.play().catch(() => {});
+               } else if (window.__riotAudio.src.includes('/edmonton_news_report_riot.mp3')) {
+                 window.__riotAudio.src = '/audio/riot_noise.mp3';
+                 window.__riotAudio.load();
+                 if (soundEnabledRef.current) window.__riotAudio.play().catch(() => {});
+               }
+             }
+           });
          }
          
          window.__riotAudio.currentTime = 0;
@@ -2143,19 +2778,15 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
         });
       }
 
-      for (let i = 0; i < deliveryVansList.length; i++) {
-        const van = deliveryVansList[i];
-        updateVanState(van, totalToRender, activeRoadProtesters);
-        allRoadObstacles.push(van);
-      }
-
+      for (let i = 0; i < deliveryVansList.length; i++) allRoadObstacles.push(deliveryVansList[i]);
       for (let i = 0; i < activeVehicles.length; i++) allRoadObstacles.push(activeVehicles[i]);
       for (let i = 0; i < emergencyVehicles.length; i++) allRoadObstacles.push(emergencyVehicles[i]);
       for (let i = 0; i < activeMicroCount; i++) allRoadObstacles.push(microMobility[i]);
 
-      const BASE_BUFFER = 3.5;
-      const CAR_EXTRA_BUFFER = 4.0;
-      const MICRO_EXTRA_BUFFER = 2.0;
+      // Update delivery vans with complete obstacle awareness
+      for (let i = 0; i < deliveryVansList.length; i++) {
+        updateVanState(deliveryVansList[i], totalToRender, activeRoadProtesters, allRoadObstacles);
+      }
 
       const staticObstacleCount = totalToRender + deliveryVansList.length;
       const roadObstacleCount = allRoadObstacles.length;
@@ -2164,6 +2795,11 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
       for (let i = staticObstacleCount; i < roadObstacleCount; i++) {
         const A = allRoadObstacles[i];
         if (A.speed === undefined || A.isStatic) continue;
+
+        // Skip movement update for cars that have successfully parked at the curb
+        if (A.parkingState === 'parked') {
+          continue;
+        }
 
         if (A.isEmergency && !isRioting && A.x < -100) {
           A.x = -800; // Park them
@@ -2174,7 +2810,7 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
         if (!A.isEmergency) {
           for (let j = staticObstacleCount; j < roadObstacleCount; j++) {
             const E = allRoadObstacles[j];
-            if (E.isEmergency && E.x > -400 && E.x < blockLength) {
+            if (E.isEmergency && E.x > -150 && E.x < A.x && (A.x - E.x) < 160) {
               emergencyApproaching = true;
               break;
             }
@@ -2183,35 +2819,167 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
 
         let targetLane = A.baseY || 110;
         const isCar_A = carTypes.includes(A.type);
-        const detectionBuffer_A = BASE_BUFFER + (isCar_A ? CAR_EXTRA_BUFFER : MICRO_EXTRA_BUFFER);
-
         let isPullingOver = false;
+
+        // Parallel parking logic for circling cars:
+        // Scanning for curbside spots, evaluating spot size relative to car size:
+        // - Spot < 80% car size: try to parallel park and give up
+        // - Spot >= 150% car size: finish parking and walk away to house
+        if (A.isCircling && !A.isBurning) {
+          if (!A.parkingState || A.parkingState === 'cruising') {
+            A.parkingState = 'cruising';
+            // Only search while in the curbside lane and along the curbside block
+            if (A.x > 35 && A.x < 270) {
+              // Find all curbside parking stalls that are currently vacant
+              const curbsideStalls = houseCarAssignments.filter(s => s.y >= 92 && s.y <= 96);
+              const occupiedStalls = houseCarAssignments.slice(0, totalToRender);
+
+              // Check if any other circling car is already targeting a stall
+              const otherTargetedStalls = activeVehicles
+                .filter(v => v !== A && v.parkingTargetSlot)
+                .map(v => v.parkingTargetSlot);
+
+              // Find candidate open stalls ahead of the car that it can scan
+              for (const stall of curbsideStalls) {
+                const isOccupied = occupiedStalls.some(
+                  os => Math.abs(os.x - stall.x) < 4 && Math.abs(os.y - stall.y) < 2
+                );
+                const isTargeted = otherTargetedStalls.some(
+                  ts => Math.abs(ts.x - stall.x) < 4 && Math.abs(ts.y - stall.y) < 2
+                );
+                if (isOccupied || isTargeted) continue;
+
+                // Stall is open! Check if car is approaching alongside it (car front near stall front)
+                const distToStall = (stall.x + stall.w) - A.x;
+                if (distToStall > 0 && distToStall < 12) {
+                  // Evaluate spot size relative to car size
+                  // Alternate between a tight 80% spot attempt (fails & gives up) and an ample >= 150% spot (succeeds)
+                  const carWidth = A.w || 15;
+                  const isLargeSpot = (stall.w / carWidth >= 1.5) || ((A.circlingLap || 1) % 2 === 0);
+                  const evaluatedRatio = isLargeSpot ? Math.max(1.5, stall.w / carWidth) : 0.8;
+
+                  A.parkingTargetSlot = stall;
+                  A.spaceRatio = evaluatedRatio;
+                  A.parkingState = 'found_spot';
+                  A.parkingTimer = 45; // Pause alongside open stall to inspect
+                  A.parkingBubbleText = evaluatedRatio >= 1.5 ? 'Spot fits (150%+) - Parking' : 'Spot 80% size - Trying to park';
+                  break;
+                }
+              }
+            }
+          }
+
+          if (A.parkingState === 'found_spot') {
+            // Decelerate and signal parallel parking maneuver alongside the stall
+            targetLane = 104; // Pull alongside the curb stall
+            isPullingOver = true;
+            A.parkingTimer = (A.parkingTimer || 0) - 1;
+            if (A.parkingTimer <= 0) {
+              A.parkingState = 'attempting_reverse';
+              A.parkingTimer = 90; // ~1.5s angle maneuver
+              A.parkingBubbleText = A.spaceRatio! >= 1.5 ? 'Reverse parallel parking...' : 'Reversing into tight spot...';
+            }
+          } else if (A.parkingState === 'attempting_reverse') {
+            // Vehicle steers into the curbside stall (y -> 94)
+            targetLane = 94.0;
+            isPullingOver = true;
+            A.parkingTimer = (A.parkingTimer || 0) - 1;
+            if (A.parkingTimer <= 0) {
+              if (A.spaceRatio! < 1.5) {
+                // 80% spot: too small to fit! Give up and rejoin traffic
+                A.parkingState = 'giving_up';
+                A.parkingTimer = 85;
+                A.parkingBubbleText = 'Too tight (80%)! Giving up';
+              } else {
+                // 150%+ spot: finish parking into the stall
+                A.parkingState = 'docking';
+                A.parkingTimer = 50;
+                A.parkingBubbleText = 'Parked!';
+              }
+            }
+          } else if (A.parkingState === 'giving_up') {
+            // Steer back out of stall into main travel lane (y = 110 or 124)
+            targetLane = A.baseY || 110;
+            A.parkingTimer = (A.parkingTimer || 0) - 1;
+            if (A.parkingTimer <= 0) {
+              // Reset back to cruising traffic
+              A.parkingState = 'cruising';
+              A.parkingTargetSlot = null;
+              A.parkingBubbleText = undefined;
+              A.searchScanTimer = 0; // Cooldown before next search attempt
+            }
+          } else if (A.parkingState === 'docking') {
+            // Settle precisely into curbside stall position
+            if (A.parkingTargetSlot) {
+              A.x = A.parkingTargetSlot.x;
+              A.y = A.parkingTargetSlot.y;
+            } else {
+              A.y = 94.0;
+            }
+            A.parkingTimer = (A.parkingTimer || 0) - 1;
+            if (A.parkingTimer <= 0) {
+              // Successfully parallel parked!
+              A.parkingState = 'parked';
+              A.isStatic = true;
+              A.speed = 0;
+              A.parkingBubbleText = undefined;
+              A.searchingBubbleTimer = 0;
+
+              // Driver exits car and walks to their house!
+              const homeIndex = Math.min(5, Math.max(0, Math.floor(A.x / 55)));
+              const targetDoorX = 10 + homeIndex * 55 + 24;
+              const targetDoorY = 48; // Front doorway
+              parkedWalkers.push({
+                x: A.x + (A.w / 2),
+                y: 88, // Driver-side door at sidewalk edge
+                targetX: targetDoorX,
+                targetY: targetDoorY,
+                color: A.color || '#005087',
+                active: true,
+                state: 'curb_to_sidewalk'
+              });
+            }
+          }
+        }
+
         if (emergencyApproaching) {
-          targetLane = 100; // Pull over to the left
+          targetLane = (A.baseY || 110) < 118 ? 108 : 126;
           isPullingOver = true;
-        } else {
+        } else if (A.type === 'etsBus' && simTotalDwellings > 11 && !A.isBurning) {
+          // Curbside pull-in / pull-out navigation for ETS Bus
+          // When approaching or dwelling at bus stop (x: 250 - 325) with passengers, steer into curbside stall lane (y = 94.5)
+          const isAtStopZone = A.x >= 250 && A.x <= 325;
+          if ((A.busStopState === 'approaching' && isAtStopZone && busStopPassengerCount > 0) || A.busStopState === 'dwelling') {
+            targetLane = 94.5;
+            isPullingOver = true;
+          } else if (A.busStopState === 'departing' || A.x > 325) {
+            // Once passengers have boarded/alighted, merge back out into the standard roadway lane
+            targetLane = A.baseY || 110;
+          }
+        } else if (!A.parkingState || A.parkingState === 'cruising') {
           let isBlockedInLane = false;
           for (let j = 0; j < roadObstacleCount; j++) {
             const B = allRoadObstacles[j];
-            if (A === B || (B.speed || 0) > 0.2) continue;
-            if (Math.abs(A.y - B.y) < 8 && B.x > A.x && B.x - (A.x + A.w) < 45) {
+            if (A === B || (B.speed || 0) > 0.3) continue;
+            if (hasLateralOverlap(A.y, A.d, B.y, B.d, 0.4) && B.x > A.x && B.x - (A.x + A.w) < 45) {
               isBlockedInLane = true;
               break;
             }
           }
 
-          if (isBlockedInLane) {
-            const altLane = (A.baseY || 110) < 115 ? 124 : 110;
+          if (isBlockedInLane && !A.isEmergency) {
+            const altLane = (A.baseY || 110) < 118 ? 124 : 110;
             let altClear = true;
-            for (let j = staticObstacleCount; j < roadObstacleCount; j++) {
+            for (let j = 0; j < roadObstacleCount; j++) {
               const B = allRoadObstacles[j];
               if (A === B) continue;
-              if (Math.abs(B.y - altLane) < 8 && Math.abs(B.x - A.x) < 28) {
-                altClear = false;
-                break;
+              if (hasLateralOverlap(altLane, A.d, B.y, B.d, 0.4)) {
+                if (B.x < A.x + A.w + 24 && B.x + B.w > A.x - 20) {
+                  altClear = false;
+                  break;
+                }
               }
             }
-            // Also check if altLane is blocked by protesters
             if (hasBurningCars) {
               for (const rp of activeRoadProtesters) {
                 if (Math.abs(rp.y - altLane) < 8 && Math.abs(rp.x - A.x) < 32) {
@@ -2224,13 +2992,18 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
           }
         }
 
-        if (Math.abs(A.y - targetLane) > 0.5) {
-          A.y += (targetLane > A.y ? 1 : -1) * 0.45;
+        const isChangingLanes = Math.abs(A.y - targetLane) > 0.05;
+        if (isChangingLanes) {
+          const step = A.type === 'etsBus' ? Math.min(0.28, Math.abs(targetLane - A.y)) : Math.min(0.36, Math.abs(targetLane - A.y));
+          const nextY = A.y + (targetLane > A.y ? 1 : -1) * step;
+          if (canChangeLane(A, nextY, allRoadObstacles)) {
+            A.y = nextY;
+          }
         } else {
           A.y = targetLane;
         }
 
-        if (A.isCircling) {
+        if (A.isCircling && (!A.parkingState || A.parkingState === 'cruising')) {
           A.searchScanTimer = (A.searchScanTimer || 0) + 1;
           if (A.x > 25 && A.x < 320) {
             // Every few seconds while passing street stalls, slow down to inspect open spots
@@ -2244,49 +3017,88 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
           }
         }
 
-        const isScanningSlowdown = A.isCircling && (A.searchingBubbleTimer || 0) > 20;
-        const assignedBaseSpeed = isScanningSlowdown
+        const isScanningSlowdown = A.isCircling && (A.searchingBubbleTimer || 0) > 20 && (!A.parkingState || A.parkingState === 'cruising');
+        let assignedBaseSpeed = isScanningSlowdown
           ? Math.max(0.38, (A.baseSpeed || 0.7) * 0.65)
           : (A.baseSpeed || BASE_CAR_SPEED);
 
-        A.speed = isPullingOver ? 0.3 : assignedBaseSpeed; // Slow down significantly when pulling over or scanning for parking
-        let targetX = A.x + A.speed;
-        let blockingObstacle: RoadObstacle | null = null;
-
-        for (let j = 0; j < roadObstacleCount; j++) {
-          const B = allRoadObstacles[j];
-          if (A === B) continue;
-          const yOverlap = A.y < B.y + B.d && A.y + A.d > B.y;
-          if (!yOverlap) continue;
-
-          if (B.x > A.x) {
-            if (targetX + A.w + detectionBuffer_A > B.x && A.x < B.x + B.w) {
-              targetX = Math.min(targetX, B.x - A.w - detectionBuffer_A);
-              A.speed = Math.min(A.speed, B.speed || 0);
-              blockingObstacle = B;
+        if (A.isBurning) {
+          assignedBaseSpeed = 0;
+        } else if (A.isEmergency) {
+          if (hasBurningCars || isRioting) {
+            const focalX = burningRoadLocations.length > 0 ? burningRoadLocations[0] : 180;
+            const stopTarget = A.type === 'police' ? (focalX - 32) : (focalX - 68);
+            if (A.x >= stopTarget) {
+              assignedBaseSpeed = 0;
+            } else if (A.x >= stopTarget - 35) {
+              assignedBaseSpeed = Math.max(0.2, (stopTarget - A.x) * 0.04);
             }
           }
         }
 
-        // Protesters blocking road lanes: vehicles come to a complete halt
-        if (hasBurningCars || isRioting) {
-          for (let k = 0; k < activePedCount; k++) {
-            const ped = pedestrians[k];
-            if (ped.y > 88 && Math.abs(A.y - ped.y) < 8.5) {
-              if (ped.x > A.x && ped.x - (A.x + A.w) < detectionBuffer_A + 6) {
-                targetX = Math.min(targetX, ped.x - A.w - detectionBuffer_A);
-                A.speed = 0;
-                blockingObstacle = { x: ped.x, y: ped.y, w: ped.w, d: ped.d, type: 'protester' };
-                break;
+        // ETS Bus Stop Dwelling & Curbside Loading/Unloading (active if dwellings > 11 and bus shelter is present at x = 324)
+        const hasBusStop = simTotalDwellings > 11;
+        if (A.type === 'etsBus' && hasBusStop && !A.isBurning) {
+          const stopTargetX = 308;
+          if (A.busStopState === 'approaching' || !A.busStopState) {
+            // Only initiate curbside pull-over stop if passengers are waiting
+            if (busStopPassengerCount > 0) {
+              if (A.x >= 260 && A.x < stopTargetX) {
+                // Decelerate smoothly as bus steers over to the curb
+                const distToStop = stopTargetX - A.x;
+                assignedBaseSpeed = Math.max(0.18, (distToStop / 48) * (A.baseSpeed || 0.95));
+              } else if (A.x >= stopTargetX && A.x < stopTargetX + 8) {
+                // Curbside reached: initiate dwelling for boarding and alighting
+                A.busStopState = 'dwelling';
+                A.busDwellTimer = 180; // ~3 seconds dwell time
+                assignedBaseSpeed = 0;
               }
             }
+          } else if (A.busStopState === 'dwelling') {
+            assignedBaseSpeed = 0;
+            if ((A.busDwellTimer || 0) > 0) {
+              A.busDwellTimer!--;
+              // Passengers finish boarding midway through the dwell
+              if (A.busDwellTimer! === 60) {
+                busStopPassengerCount = 0; // Loaded onto bus
+                busStopPassengerRespawnTimer = 400; // Will respawn next waiting passengers in ~6.5s
+              }
+              if (A.busDwellTimer! <= 0) {
+                A.busStopState = 'departing';
+              }
+            }
+          } else if (A.busStopState === 'departing') {
+            // Accelerate and merge back out into street traffic
+            assignedBaseSpeed = (A.baseSpeed || 0.95) * 0.85;
           }
         }
 
+        // Adjust speed for parking maneuver states
+        if (A.parkingState === 'found_spot') {
+          assignedBaseSpeed = 0.22;
+        } else if (A.parkingState === 'attempting_reverse') {
+          assignedBaseSpeed = 0.18;
+        } else if (A.parkingState === 'docking') {
+          assignedBaseSpeed = 0;
+        } else if (A.parkingState === 'giving_up') {
+          assignedBaseSpeed = 0.45;
+        }
+
+        const proposedSpeed = isPullingOver && A.type !== 'etsBus' && !A.parkingState ? Math.min(0.35, assignedBaseSpeed) : assignedBaseSpeed;
+
+        const { safeSpeed, targetX, blocking } = checkForwardObstacle(
+          A,
+          proposedSpeed,
+          allRoadObstacles,
+          (hasBurningCars || isRioting) ? activeRoadProtesters : []
+        );
+
+        A.speed = safeSpeed;
         A.x = targetX;
+        const blockingObstacle: RoadObstacle | null = blocking;
 
         // Honk logic
-        if (isCar_A && A.stuckTimer !== undefined) {
+        if (isCar_A && A.stuckTimer !== undefined && (!A.parkingState || A.parkingState === 'cruising')) {
           const isBlockedByVanOrRiot =
             blockingObstacle &&
             (blockingObstacle.type === 'deliveryVan' ||
@@ -2334,22 +3146,30 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
           if (A.isCircling) {
             A.circlingLap = (A.circlingLap || 1) + 1;
             A.searchingBubbleTimer = 85; // Announce lap
+            // Reset parking state for fresh search on next lap
+            A.parkingState = 'cruising';
+            A.parkingTargetSlot = null;
+            A.parkingBubbleText = undefined;
             // Switch lane between laps to search both sides of the street
             A.baseY = A.baseY === 110 ? 124 : 110;
           }
 
           let respawnX = -60;
-          for (let j = staticObstacleCount; j < roadObstacleCount; j++) {
+          for (let j = 0; j < roadObstacleCount; j++) {
             const B = allRoadObstacles[j];
             if (A === B) continue;
-            if (Math.abs(A.y - B.y) < 8 && B.x < 0 && B.x > respawnX - A.w - 15) {
-              respawnX = Math.min(respawnX, B.x - A.w - 15);
+            if (Math.abs(A.y - B.y) < 8 && B.x < 0 && B.x > respawnX - A.w - 20) {
+              respawnX = Math.min(respawnX, B.x - A.w - 25);
             }
           }
           A.x = respawnX;
           A.y = A.baseY || 110;
           A.targetY = A.baseY || 110;
           A.speed = A.baseSpeed || BASE_CAR_SPEED;
+          if (A.type === 'etsBus') {
+            A.busStopState = 'approaching';
+            A.busDwellTimer = 0;
+          }
           if (A.stuckTimer !== undefined) {
             A.stuckTimer = 0;
             A.honkCooldown = 0;
@@ -2364,110 +3184,92 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
 
       
 
-      // Handle Residents
+      // Handle Residents gathering on front lawns in friendly social groups
       for (let i = 0; i < residents.length; i++) {
         const r = residents[i];
         
         if (isHarmony) {
           if (r.state === 'inside') {
-             if (Math.random() < 0.05) {
-                 r.state = 'walking_to_garden';
-                 r.targetX = r.homeX - 10 + Math.random() * 20;
-                 r.targetY = 75 + Math.random() * 6; // Sidewalk Y
-             }
-          } else if (r.state === 'walking_to_garden') {
-             const dx = r.targetX - r.x;
-             const dy = r.targetY - r.y;
-             const dist = Math.sqrt(dx*dx + dy*dy);
-             if (dist > 1.0) {
-                 r.x += (dx/dist) * 0.3;
-                 r.y += (dy/dist) * 0.3;
-             } else {
-                 if (harmonyFlowerGrowth >= 0.3 && Math.random() < 0.5) {
-                     r.state = 'visiting';
-                     // Find a random neighbor to visit
-                     r.friendIdx = Math.floor(Math.random() * residents.length);
-                     const friend = residents[r.friendIdx];
-                     r.targetX = friend.x - 5 + Math.random() * 10;
-                     r.targetY = 75 + Math.random() * 6;
-                 } else {
-                     r.state = 'planting';
-                     r.timer = 1.0 + Math.random() * 2.0;
-                 }
-             }
-          } else if (r.state === 'planting') {
-             r.timer -= 1/60;
-             if (r.timer <= 0) {
-                 if (harmonyFlowerGrowth >= 0.3 && Math.random() < 0.8) {
-                     r.state = 'visiting';
-                     r.friendIdx = Math.floor(Math.random() * residents.length);
-                     const friend = residents[r.friendIdx];
-                     r.targetX = friend.x - 5 + Math.random() * 10;
-                     r.targetY = 75 + Math.random() * 6;
-                 } else {
-                     r.state = 'walking_to_garden';
-                     r.targetX = r.homeX - 15 + Math.random() * 30;
-                     r.targetY = 75 + Math.random() * 6;
-                 }
-             }
-          } else if (r.state === 'visiting') {
-             const dx = r.targetX - r.x;
-             const dy = r.targetY - r.y;
-             const dist = Math.sqrt(dx*dx + dy*dy);
-             if (dist > 1.0) {
-                 r.x += (dx/dist) * 0.4;
-                 r.y += (dy/dist) * 0.4;
-             } else {
-                 if (Math.random() < 0.02) {
-                     // Go back to own sidewalk area
-                     r.state = 'walking_to_garden';
-                     r.targetX = r.homeX - 10 + Math.random() * 20;
-                     r.targetY = 75 + Math.random() * 6;
-                 }
-             }
+            r.timer -= 1 / 60;
+            if (r.timer <= 0) {
+              r.state = 'walking_to_lawn';
+              const hub = lawnGatheringHubs[r.groupId % lawnGatheringHubs.length];
+              // Cluster around the lawn hub in a circle / small group (3-5 units spread)
+              const angle = (i * 1.37) % (Math.PI * 2);
+              const radius = 2.5 + (i % 3) * 1.8;
+              r.targetX = hub.centerX + Math.cos(angle) * radius;
+              r.targetY = hub.centerY + Math.sin(angle) * radius * 0.7; // slightly squashed in Y for isometric perspective
+            }
+          } else if (r.state === 'walking_to_lawn') {
+            const dx = r.targetX - r.x;
+            const dy = r.targetY - r.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > 0.8) {
+              r.x += (dx / dist) * 0.35;
+              r.y += (dy / dist) * 0.35;
+            } else {
+              r.state = 'chatting';
+              r.timer = 4.0 + Math.random() * 6.0;
+            }
+          } else if (r.state === 'chatting') {
+            // Friendly interaction: gently drift to chat with another neighbor in the same or nearby lawn group
+            r.timer -= 1 / 60;
+            r.talkBubbleTimer = (r.talkBubbleTimer + 1 / 60) % 5.0;
+
+            if (r.timer <= 0) {
+              // Pick another spot in the lawn gathering or visit adjacent lawn group
+              const currentHub = lawnGatheringHubs[r.groupId % lawnGatheringHubs.length];
+              const angle = Math.random() * Math.PI * 2;
+              const radius = 2.0 + Math.random() * 4.5;
+              r.targetX = currentHub.centerX + Math.cos(angle) * radius;
+              r.targetY = currentHub.centerY + Math.sin(angle) * radius * 0.7;
+              r.state = 'walking_to_lawn';
+            }
           }
         } else {
-          // Go back inside
+          // When harmony ends, walk calmly back inside
           if (r.state !== 'inside') {
-             const dx = r.homeX - r.x;
-             const dy = 35 - r.y;
-             const dist = Math.sqrt(dx*dx + dy*dy);
-             if (dist > 1.0) {
-                 r.x += (dx/dist) * 0.6;
-                 r.y += (dy/dist) * 0.6;
-                 r.state = 'walking_to_garden'; // just using this state to mean 'moving'
-             } else {
-                 r.x = r.homeX;
-                 r.y = 35;
-                 r.state = 'inside';
-             }
+            const dx = r.homeX - r.x;
+            const dy = 35 - r.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > 1.0) {
+              r.x += (dx / dist) * 0.5;
+              r.y += (dy / dist) * 0.5;
+            } else {
+              r.x = r.homeX;
+              r.y = 35;
+              r.state = 'inside';
+              r.timer = 0.5 + Math.random() * 1.5;
+            }
           }
         }
       }
 
+      // Slow down flower growth speed by 50% (from +0.005 down to +0.0025 per frame)
       if (isHarmony) {
-        harmonyFlowerGrowth = Math.min(1.0, harmonyFlowerGrowth + 0.005);
+        harmonyFlowerGrowth = Math.min(1.0, harmonyFlowerGrowth + 0.0025);
       } else {
-        harmonyFlowerGrowth = Math.max(0.0, harmonyFlowerGrowth - 0.02);
+        harmonyFlowerGrowth = Math.max(0.0, harmonyFlowerGrowth - 0.015);
       }
       
-            // Draw growing flower beds behind vehicles but in front of houses
-
-      // Draw Residents if outside
+      // Draw Residents gathered on the lawns in friendly groups talking to each other
       ctx!.save();
       for (let i = 0; i < residents.length; i++) {
-         const r = residents[i];
-         if (r.state !== 'inside') {
-             // If visiting and close to target, trigger talking animation
-             const isTalking = r.state === 'visiting' && (Math.abs(r.targetX - r.x) < 2.0) && (Math.abs(r.targetY - r.y) < 2.0);
-             const zBob = isTalking && (Date.now() % 600 < 300) ? 1.0 : 0; // Simple bobbing animation
-             
-             drawPedestrian(r.x, r.y, zBob, r.color, isTalking ? 'bystander' : 'normal');
-             
-             if (isTalking) {
-                 drawSpeechBubble(r.x, r.y, zBob);
-             }
-         }
+        const r = residents[i];
+        if (r.state !== 'inside') {
+          // If chatting in group, animate animated conversational head bobbing and gesture
+          const isChatting = r.state === 'chatting';
+          const zBob = isChatting && (Math.sin(Date.now() * 0.005 + i * 2) > 0.4) ? 0.8 : 0;
+          
+          drawPedestrian(r.x, r.y, zBob, r.color, 'normal');
+          
+          // Friendly conversational speech bubble: alternating members of the group talk
+          // Each resident has their own cycle so conversations feel organic and lively
+          const showBubble = isChatting && (r.talkBubbleTimer < 2.0);
+          if (showBubble) {
+            drawSpeechBubble(r.x, r.y, zBob);
+          }
+        }
       }
       ctx!.restore();
 
@@ -2478,11 +3280,18 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
           const individualGrowth = Math.max(0, Math.min(1, (harmonyFlowerGrowth * 1.5) - (i % 10) * 0.05));
           if (individualGrowth > 0) {
              const scaleAnim = Math.sin(individualGrowth * Math.PI / 2);
-             const h = 10 * scaleAnim;
+             // Variety of sizes: scaled from 60% smaller (0.40) to 100% (1.00) based on f.sizeScale
+             const sizeMult = f.sizeScale || 1.0;
+             const h = (10 * sizeMult) * scaleAnim;
+             const stemThickness = Math.max(1.2, 2.0 * sizeMult);
+             const headSize = (8.0 * sizeMult) * scaleAnim;
+             const headHeight = (4.0 * sizeMult) * scaleAnim;
+             const headOffset = (headSize - stemThickness) / 2;
+             
              // Stem 
-             drawBlock(f.x, f.y, 0, 2.0, 2.0, h, '#1e633a', '#144528', '#144528');
-             // Flower head (very large, 8x8 wide in simulation units)
-             drawBlock(f.x - 3.0 * scaleAnim, f.y - 3.0 * scaleAnim, h, 8.0 * scaleAnim, 8.0 * scaleAnim, 4.0 * scaleAnim, f.color, f.color, f.color);
+             drawBlock(f.x, f.y, 0, stemThickness, stemThickness, h, '#1e633a', '#144528', '#144528');
+             // Flower head with mixed colors and varied size (from 40% to 100% full scale)
+             drawBlock(f.x - headOffset, f.y - headOffset, h, headSize, headSize, headHeight, f.color, f.color, f.color);
           }
         }
       }
@@ -2515,24 +3324,58 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
           honkBubbleTimer: v.honkBubbleTimer,
           isCircling: v.isCircling,
           circlingLap: v.circlingLap,
-          searchingBubbleTimer: v.searchingBubbleTimer
+          searchingBubbleTimer: v.searchingBubbleTimer,
+          busStopState: v.busStopState,
+          isExtraBus: v.isExtraBus,
+          parkingState: v.parkingState,
+          parkingBubbleText: v.parkingBubbleText
         });
+      }
+      for (let i = 0; i < activeMicroCount; i++) {
+        const mm = microMobility[i];
+        renderQueue.push({ ...mm, sortY: mm.y });
       }
 
       // Sort by Y-coordinate for proper isometric depth rendering (objects lower on screen drawn last)
       renderQueue.sort((a, b) => a.sortY - b.sortY);
 
+      // Render ETS Bus Stop Shelter at the curb edge on the boulevard (end of street) if dwellings > 11
+      const hasBusStopShelter = simTotalDwellings > 11;
+      if (hasBusStopShelter) {
+        drawBusStopShelter(324, 80.5);
+      }
+
       for (const item of renderQueue) {
-        drawVehicle(item.x, item.y, 0, item.type, item.color, item.isFlipped);
-        
-        if (item.isFlipped) {
-          spawnFireParticle(item.x + 3, item.y + 3, 4);
-          spawnFireParticle(item.x + 8, item.y + 2, 4);
-          if (Math.random() < 0.4) spawnFireParticle(item.x + 12, item.y + 3, 3);
-        } else if (item.honkBubbleTimer && item.honkBubbleTimer > 0) {
-          drawHonkBubble(item.x, item.y, 0);
-        } else if (item.isCircling && item.searchingBubbleTimer && item.searchingBubbleTimer > 0) {
-          drawCirclingBubble(item.x, item.y, 0, item.circlingLap || 1, curbsideDemand >= TOTAL_LEGAL_CURBSIDE_STALLS);
+        if (item.type === 'bike') {
+          drawCyclist(item.x, item.y, 0, item.color);
+        } else if (item.type === 'scooter') {
+          drawScooter(item.x, item.y, 0, item.color);
+        } else {
+          drawVehicle(item.x, item.y, 0, item.type, item.color, item.isFlipped);
+          
+          if (item.isFlipped) {
+            spawnFireParticle(item.x + 3, item.y + 3, 4);
+            spawnFireParticle(item.x + 8, item.y + 2, 4);
+            if (Math.random() < 0.4) spawnFireParticle(item.x + 12, item.y + 3, 3);
+          } else if (item.honkBubbleTimer && item.honkBubbleTimer > 0) {
+            drawHonkBubble(item.x, item.y, 0);
+          } else if (item.parkingBubbleText && item.parkingState !== 'parked') {
+            const status = item.parkingState === 'giving_up' 
+              ? 'giveup' 
+              : item.parkingState === 'docking' 
+                ? 'success' 
+                : 'attempt';
+            drawParkingAttemptBubble(item.x, item.y, 0, item.parkingBubbleText, status);
+          } else if (item.isCircling && item.searchingBubbleTimer && item.searchingBubbleTimer > 0) {
+            drawCirclingBubble(item.x, item.y, 0, item.circlingLap || 1, curbsideDemand >= currentLegalCurbsideStalls);
+          } else if (item.type === 'etsBus') {
+            if (item.busStopState === 'dwelling') {
+              drawBusBubble(item.x, item.y, 0, 'ETS Bus Stop - Boarding');
+            } else if (item.isExtraBus && item.searchingBubbleTimer && item.searchingBubbleTimer > 0) {
+              item.searchingBubbleTimer--;
+              drawBusBubble(item.x, item.y, 0, 'Frequent ETS Service (10+ homes)');
+            }
+          }
         }
       }
 
@@ -2558,6 +3401,41 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
         }
       }
 
+      // Waiting passengers at the bus shelter when bus stop is active (> 11 dwellings)
+      // They wait at the shelter, and during bus dwelling they walk to the bus curb edge and board!
+      if (simTotalDwellings > 11) {
+        if (busStopPassengerRespawnTimer > 0) {
+          busStopPassengerRespawnTimer--;
+          if (busStopPassengerRespawnTimer === 0) {
+            busStopPassengerCount = 2; // New commuters arrive to wait for the next bus
+          }
+        }
+
+        const dwellingBus = activeVehicles.find(v => v.type === 'etsBus' && v.busStopState === 'dwelling');
+        if (dwellingBus) {
+          // Bus is at the curb loading passengers: animate boarding
+          const dwellLeft = dwellingBus.busDwellTimer || 0;
+          const boardProgress = Math.min(1, Math.max(0, (180 - dwellLeft) / 110)); // 0 to 1 as boarding occurs
+
+          if (dwellLeft > 70) {
+            // Commuter 1 stepping from bench out towards bus door
+            const p1X = 330 + (320 - 330) * boardProgress;
+            const p1Y = 83.5 + (90.5 - 83.5) * boardProgress;
+            drawPedestrian(p1X, p1Y, 0, '#005087');
+
+            // Commuter 2 stepping from sign post towards bus front door
+            const p2X = 341 + (326 - 341) * boardProgress;
+            const p2Y = 88.0 + (91.0 - 88.0) * boardProgress;
+            drawPedestrian(p2X, p2Y, 0, '#0284c7');
+          }
+        } else if (busStopPassengerCount > 0) {
+          drawPedestrian(330, 83.5, 0, '#005087'); // Commuter waiting inside shelter on bench
+          if (busStopPassengerCount > 1) {
+            drawPedestrian(341, 88.0, 0, '#0284c7'); // Commuter waiting by curb edge sign post
+          }
+        }
+      }
+
       for (let i = 0; i < deliveryVansList.length; i++) {
         const dr = deliveryVansList[i].driver;
         if (dr.active) {
@@ -2568,15 +3446,43 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
         }
       }
 
+      // Render residents walking from successfully parallel parked cars to their house front door
+      for (let i = parkedWalkers.length - 1; i >= 0; i--) {
+        const pw = parkedWalkers[i];
+        if (!pw.active) continue;
+
+        if (pw.state === 'curb_to_sidewalk') {
+          // Walk from driver side curb (y: 88) up across boulevard onto sidewalk (y: 74)
+          pw.y -= 0.35;
+          if (pw.y <= 74) {
+            pw.y = 74;
+            pw.state = 'sidewalk_to_door';
+          }
+        } else if (pw.state === 'sidewalk_to_door') {
+          // Walk along sidewalk to house path, then up front walkway into house doorway
+          const dx = pw.targetX - pw.x;
+          if (Math.abs(dx) > 0.8) {
+            pw.x += Math.sign(dx) * 0.45;
+          } else {
+            pw.x = pw.targetX;
+            // Walk up front walkway into house (y: 74 -> 48)
+            pw.y -= 0.4;
+            if (pw.y <= pw.targetY) {
+              pw.state = 'entered';
+              pw.active = false;
+            }
+          }
+        }
+
+        if (pw.active) {
+          drawPedestrian(pw.x, pw.y, 0, pw.color);
+        } else {
+          parkedWalkers.splice(i, 1);
+        }
+      }
+
       // Layer 5: Trees
       ctx!.drawImage(bgTreesCanvas, 0, 0);
-
-      // Layer 6: Bikes and Scooters
-      for (let i = 0; i < activeMicroCount; i++) {
-        const mm = microMobility[i];
-        if (mm.type === 'bike') drawCyclist(mm.x, mm.y, 0, mm.color);
-        else drawScooter(mm.x, mm.y, 0, mm.color);
-      }
 
       
       // Harmony Confetti Layer
@@ -2628,9 +3534,11 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
         isRioting = false;
         setIsRiotActive(false);
       } else {
+        const simSplits = Math.floor(getSplitInfillCount() / 2);
+        const simDwellings = (6 - simSplits) + (simSplits * 2);
         const totalParked = Math.min(
           houseCarAssignments.length,
-          Math.round((configRef.current.householdCarsPerHome + configRef.current.visitorPassesPerHome) * 6)
+          Math.round((configRef.current.householdCarsPerHome + configRef.current.visitorPassesPerHome) * simDwellings)
         );
         // Collect parked cars strictly ON THE ROAD (y >= 90). Driveway cars (y < 70) NEVER burn.
         const roadCars: number[] = [];
@@ -2651,9 +3559,11 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
     };
 
     handleCanvasClickRef.current = (clickX: number, clickY: number) => {
+      const simSplits = Math.floor(getSplitInfillCount() / 2);
+      const simDwellings = (6 - simSplits) + (simSplits * 2);
       const totalParked = Math.min(
         houseCarAssignments.length,
-        Math.round((configRef.current.householdCarsPerHome + configRef.current.visitorPassesPerHome) * 6)
+        Math.round((configRef.current.householdCarsPerHome + configRef.current.visitorPassesPerHome) * simDwellings)
       );
 
       // 1. Check if user clicked on any car ON THE ROAD (curbside stall)
@@ -2682,8 +3592,8 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
 
       // 2. Check if user clicked on moving road traffic vehicle
       for (let v of activeVehicles) {
-        const pos = project(v.x + 8, v.y + 3.5, 3);
-        if (Math.hypot(clickX - pos.x, clickY - pos.y) < 32) {
+        const pos = project(v.x + (v.w / 2), v.y + (v.d / 2), 3);
+        if (Math.hypot(clickX - pos.x, clickY - pos.y) < Math.max(32, v.w)) {
           v.isBurning = !v.isBurning;
           if (v.isBurning) {
             v.speed = 0;
@@ -2718,6 +3628,16 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
         }
       }
       window.__riotAudioPending = false;
+      if (window.__commendationAudio) {
+        try {
+          window.__commendationAudio.pause();
+          window.__commendationAudio.currentTime = 0;
+        } catch {
+          // Ignore
+        }
+      }
+      window.__commendationAudioPending = false;
+      window.__commendationAudioPlayed = false;
       if (audioAlertTimerRef.current) {
         clearTimeout(audioAlertTimerRef.current);
         audioAlertTimerRef.current = null;
@@ -2725,9 +3645,21 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
     };
   }, [playHonk, playCriticalAlarm]);
 
-  const activeHouseholdCars = Math.round(config.householdCarsPerHome * 6);
-  const activeVisitorCars = Math.round(config.visitorPassesPerHome * 6);
-  const totalWeeklyDeliveries = Math.round(config.deliveriesPerHomePerWeek * 6);
+  const rawSplitLots = config.splitInfillLots ?? 2;
+  const numPhysicalLotsSplit = Math.min(6, Math.max(1, Math.floor(rawSplitLots / 2)));
+  const standardLotsCount = Math.max(0, 6 - numPhysicalLotsSplit);
+  const splitHomesCount = numPhysicalLotsSplit * 2;
+  // Total dwellings on the block: non-split single-family homes + 2 dwellings for each split lot
+  const totalDwellings = standardLotsCount + splitHomesCount;
+
+  // When a lot is split for infill and a driveway is removed, curbside total space for parking goes up by 1 car (continuous curb).
+  // When the ETS Bus Stop appears (> 11 dwellings), curbside parking stalls in front of it are removed (1 stall deducted).
+  const busStopStallDeduction = totalDwellings > 11 ? 1 : 0;
+  const totalLegalCurbsideStalls = Math.max(1, BASE_LEGAL_CURBSIDE_STALLS + numPhysicalLotsSplit - busStopStallDeduction);
+
+  const activeHouseholdCars = Math.round(config.householdCarsPerHome * totalDwellings);
+  const activeVisitorCars = Math.round(config.visitorPassesPerHome * totalDwellings);
+  const totalWeeklyDeliveries = Math.round(config.deliveriesPerHomePerWeek * totalDwellings);
 
   const getGaugeStatusColor = () => {
     if (curbsidePct >= 150) return 'text-[#E8552D] bg-[#E8552D]/10 border-[#E8552D]/40';
@@ -2767,6 +3699,11 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
               window.__riotAudio.play().catch(err => console.warn('Riot audio still blocked', err));
               window.__riotAudioPending = false;
             }
+            // Resume commendation audio if it was blocked by autoplay policies
+            if (window.__commendationAudioPending && window.__commendationAudio) {
+              window.__commendationAudio.play().catch(err => console.warn('Commendation audio still blocked', err));
+              window.__commendationAudioPending = false;
+            }
             const canvas = canvasRef.current;
             if (!canvas) return;
             const rect = canvas.getBoundingClientRect();
@@ -2802,10 +3739,10 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
               </div>
               <div className="px-2.5 py-1 sm:px-4 sm:py-1.5">
                 <h4 className="text-white text-xs sm:text-sm font-black uppercase tracking-wide m-0 truncate">
-                  NEIGHBORHOOD ACHIEVES PERFECT TRAFFIC HARMONY
+                  TODAY, THE TRANSFORMATION IN THIS NEIGHBORHOOD IS NOTHING SHORT OF REMARKABLE
                 </h4>
                 <p className="text-[#b3ffd1] text-[9px] sm:text-xs font-bold m-0 truncate">
-                  SMART POLICIES KEEP STREETS CLEAR • BUSINESSES BOOMING • RESIDENTS HAPPY
+                  CHILDREN PLAYING SAFELY ON TREE-SHADED SIDEWALKS • QUIETER, GREENER & FAR MORE CONNECTED
                 </p>
               </div>
               <div className="w-full h-5 sm:h-6 bg-white border-t border-[#004B8D] flex items-center overflow-hidden">
@@ -2814,7 +3751,7 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
                 </div>
                 <div className="text-[#004B8D] text-[9px] sm:text-[10px] font-bold px-2 whitespace-nowrap overflow-hidden flex-1 h-full flex items-center">
                   <span className="inline-block animate-marquee uppercase">
-                    "It's beautiful out here. Delivery vans have space, visitors are finding spots easily, and the air is clear. A masterclass in urban planning!"
+                    "The chaotic dash for curb space has been replaced by children playing safely on tree-shaded sidewalks, neighbors chatting on front lawns, and a steady, calm flow of cars, bicycles, and scooters safely sharing the road. When a neighborhood works together, everyone wins!"
                   </span>
                 </div>
               </div>
@@ -2845,18 +3782,18 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
               </div>
               <div className="px-2.5 py-1 sm:px-4 sm:py-1.5">
                 <h4 className="text-white text-xs sm:text-sm font-black uppercase tracking-wide m-0 truncate">
-                  CAR BURNING ON ROADWAY • PROTESTERS BLOCKING TRAFFIC
+                  "THIS IS ABSOLUTE MADNESS! AN ANGRY BLOCK-WIDE MOB MARCHING DOWN THE ROAD!"
                 </h4>
                 <p className="text-[#FFC72C] text-[9px] sm:text-xs font-bold m-0 truncate">
-                  PROTESTERS ASSEMBLED IN ROAD LANES • BYSTANDERS OBSERVING SAFELY FROM SIDEWALK
+                  RIOT GAUGE CLIMBING PAST 25% • POLICE CARS SWARMING • CROWD DEMANDING "MORE PARKING & HOMES FOR CARS"
                 </p>
               </div>
               <div className="w-full h-5 sm:h-6 bg-black border-t border-[#0081BC] flex items-center overflow-hidden">
                 <div className="bg-[#FFC72C] text-[#111] font-black text-[9px] px-2 h-full flex items-center whitespace-nowrap z-10">
-                  TICKER
+                  REPORTER
                 </div>
                 <div className="whitespace-nowrap text-[10px] sm:text-xs font-bold text-white animate-marquee pl-4">
-                  ⚠️ VEHICLE BURNING ON ROADWAY — PROTESTERS GATHER ON ROAD STOPPING TRAFFIC — BYSTANDERS SAFELY ON SIDEWALK — DRIVEWAYS UNAFFECTED — ⚠️
+                  🚨 "THIS IS ABSOLUTE MADNESS, LADIES AND GENTLEMEN! THE STREETS ARE COMPLETELY FLOODED! LOOK AT THE SIGNS: 'MORE PARKING' AND 'HOMES FOR CARS'! POLICE SWARMING IN AS TEMPERS FLARE OUT OF CONTROL!" 🚨
                 </div>
               </div>
             </div>
@@ -2871,7 +3808,7 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
             className="absolute top-2 left-1/2 -translate-x-1/2 z-35 bg-[#11283f]/95 border-2 border-[#FFC72C] text-white px-3.5 py-1.5 rounded-full shadow-2xl flex items-center gap-2 text-xs font-bold pointer-events-none backdrop-blur-md"
           >
             <span className="text-sm">
-              {visualAudioAlert.icon === 'siren' ? '🚨' : visualAudioAlert.icon === 'alarm' ? '⚠️' : '📢'}
+              {visualAudioAlert.icon === 'siren' ? '🚨' : visualAudioAlert.icon === 'alarm' ? '⚠️' : visualAudioAlert.icon === 'medal' ? '⭐' : '📢'}
             </span>
             <span className="tracking-wide text-[#FFC72C]">{visualAudioAlert.text}</span>
           </div>
@@ -2950,7 +3887,7 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
             </div>
             <canvas ref={gaugeCanvasRef} width={120} height={60} className="w-full h-auto block" />
             <span className="text-[10px] sm:text-xs font-semibold text-gray-200 mt-0.5 whitespace-nowrap">
-              {curbsideDemandCount}/{TOTAL_LEGAL_CURBSIDE_STALLS} Cars
+              {curbsideDemandCount}/{curbsideStallsCapacity || totalLegalCurbsideStalls} Cars
             </span>
 
             {/* Circling / Cruising Traffic Indicator */}
@@ -3045,23 +3982,23 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
                 />
               </div>
 
-              {/* Driveway Capacity */}
+              {/* Infill Homes (2 to 12, increasing by 2 for each lot split) */}
               <div className="flex flex-col gap-0.5">
                 <div className="flex justify-between">
-                  <span className="text-gray-300">Driveway Spots</span>
+                  <span className="text-gray-300">Infill Homes</span>
                   <span className="font-bold text-[#009A44]">
-                    {config.drivewayCapacity <= 1 ? '1 Car' : '2 Cars (Tandem)'}
+                    {totalDwellings} Dwellings
                   </span>
                 </div>
                 <input
                   type="range"
-                  aria-label="Driveway capacity (spots)"
-                  min="1"
-                  max="2"
-                  step="1"
-                  value={Math.min(2, Math.max(1, config.drivewayCapacity))}
+                  aria-label="Infill homes"
+                  min="2"
+                  max="12"
+                  step="2"
+                  value={config.splitInfillLots ?? 2}
                   onChange={(e) =>
-                    onConfigChange?.({ drivewayCapacity: parseInt(e.target.value, 10) })
+                    onConfigChange?.({ splitInfillLots: parseInt(e.target.value, 10) })
                   }
                   className="accent-[#009A44] cursor-pointer h-1.5 bg-gray-700 rounded-lg"
                 />
@@ -3103,22 +4040,6 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
                   {config.enforcementLevel}
                 </span>
                 <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      triggerFeedback('button');
-                      toggleRoadFire();
-                    }}
-                    className={`px-2 py-1 min-h-[44px] rounded text-[10px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFC72C] ${
-                      isRiotActive
-                        ? 'bg-[#E8552D] text-white hover:bg-[#c2410c] animate-pulse'
-                        : 'bg-gray-800 text-[#FFC72C] hover:bg-gray-700 hover:text-white border border-gray-600'
-                    }`}
-                    title={isRiotActive ? 'Extinguish Road Car Fire' : 'Ignite Road Car Fire (Protesters block road, bystanders on sidewalk)'}
-                  >
-                    <Flame className="w-3 h-3 text-[#FFC72C]" />
-                    {isRiotActive ? 'Extinguish' : 'Road Fire'}
-                  </button>
                   <button
                     type="button"
                     onClick={() => {

@@ -4,6 +4,7 @@ export const INITIAL_SIM_CONFIG: SimulationConfig = {
   householdCarsPerHome: 2.5,
   visitorPassesPerHome: 0.5,
   drivewayCapacity: 2,
+  splitInfillLots: 2,
   deliveriesPerHomePerWeek: 1.0,
   enforcementLevel: 'standard',
   cruisingTrafficLevel: 'moderate',
