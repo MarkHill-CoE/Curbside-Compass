@@ -1,0 +1,14 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Curbside Compass public survey responses
+    // Citizens and respondents can submit and update their own feedback session
+    match /survey_responses/{responseId} {
+      allow create: if request.resource.data.personaId is string
+                    && request.resource.data.personaTitle is string
+                    && request.resource.data.quadrant in ['Q1', 'Q2', 'Q3', 'Q4'];
+      allow update: if resource != null;
+      allow read: if false; // Kept private to project administrators in Firebase Console
+    }
+  }
+}

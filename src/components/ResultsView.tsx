@@ -5,12 +5,14 @@ import { ThankYouView } from './ThankYouView';
 import { PolicyCompassGraph } from './PolicyCompassGraph';
 import { triggerFeedback } from '../utils/feedback';
 import { useAppText } from '../context/TextContentContext';
+import { saveSurveyResponse } from '../services/firebaseService';
 
 interface ResultsViewProps {
   persona: PersonaResult;
   totalX: number;
   totalY: number;
   config: SimulationConfig;
+  answers?: Record<string, string>;
   onRetake?: () => void;
 }
 
@@ -19,14 +21,50 @@ const ResultsViewComponent: React.FC<ResultsViewProps> = ({
   totalX,
   totalY,
   config,
+  answers = {},
   onRetake
 }) => {
   const { t } = useAppText();
   const [rating, setRating] = useState<number | null>(null);
   const [feedback, setFeedback] = useState<string>('');
   const [submitted, setSubmitted] = useState<boolean>(false);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
   const [step, setStep] = useState<1 | 2>(1);
   const [copied, setCopied] = useState<boolean>(false);
+
+  // Auto-save survey results to Firestore on initial render of ResultsView
+  React.useEffect(() => {
+    saveSurveyResponse({
+      persona,
+      totalX,
+      totalY,
+      answers,
+      simConfig: config
+    }).catch(err => {
+      console.warn('[Firebase] Initial auto-save notice:', err);
+    });
+  }, [persona, totalX, totalY, answers, config]);
+
+  const handleSubmitFeedback = async () => {
+    triggerFeedback('submit');
+    setIsSaving(true);
+    try {
+      await saveSurveyResponse({
+        persona,
+        totalX,
+        totalY,
+        answers,
+        simConfig: config,
+        rating,
+        feedback
+      });
+    } catch (err) {
+      console.warn('[Firebase] Error saving feedback:', err);
+    } finally {
+      setIsSaving(false);
+      setSubmitted(true);
+    }
+  };
 
   if (submitted) {
     return (
@@ -298,13 +336,11 @@ const ResultsViewComponent: React.FC<ResultsViewProps> = ({
           <button
             type="button"
             id="submit-feedback"
-            onClick={() => {
-              triggerFeedback('submit');
-              setSubmitted(true);
-            }}
-            className="px-4 sm:px-5 py-1.5 sm:py-2 bg-[#004B8D] hover:bg-[#003866] text-white rounded-lg text-xs sm:text-sm font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer min-h-[42px] sm:min-h-[44px] active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-[#004B8D]"
+            disabled={isSaving}
+            onClick={handleSubmitFeedback}
+            className="px-4 sm:px-5 py-1.5 sm:py-2 bg-[#004B8D] hover:bg-[#003866] disabled:opacity-70 text-white rounded-lg text-xs sm:text-sm font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer min-h-[42px] sm:min-h-[44px] active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-[#004B8D]"
           >
-            <span>{submitted ? t('results_view_summary', 'View Summary') : t('results_finish_share', 'Finish & Share')}</span>
+            <span>{isSaving ? 'Saving...' : submitted ? t('results_view_summary', 'View Summary') : t('results_finish_share', 'Finish & Share')}</span>
             <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </button>
         </div>

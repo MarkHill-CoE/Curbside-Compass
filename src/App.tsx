@@ -391,6 +391,7 @@ export default function App() {
               totalX={totalX}
               totalY={totalY}
               config={simConfig}
+              answers={selectedAnswers}
               onRetake={handleRetake}
             />
           )}
