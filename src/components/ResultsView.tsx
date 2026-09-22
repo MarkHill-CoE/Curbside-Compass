@@ -174,7 +174,7 @@ const ResultsViewComponent: React.FC<ResultsViewProps> = ({
         </div>
       </div>
 
-      {/* Two Column Priorities & Edmonton Policy Context */}
+      {/* Two Column Priorities & Parking Program Trade-off Outcomes */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5 sm:gap-2 items-stretch flex-shrink-0">
         
         {/* Left Column: You Believe */}
@@ -194,7 +194,7 @@ const ResultsViewComponent: React.FC<ResultsViewProps> = ({
           </div>
         </div>
 
-        {/* Right Column: Parking Program Outcomes */}
+        {/* Right Column: Parking Program Trade-off Outcomes */}
         <div className="flex flex-col">
           <div className="bg-white border border-gray-200 rounded-xl p-2 sm:p-2.5 shadow-xs flex flex-col h-full justify-center">
             <div className="flex items-center gap-1.5 mb-1 sm:mb-1.5">
@@ -202,11 +202,11 @@ const ResultsViewComponent: React.FC<ResultsViewProps> = ({
                 <Target className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#0081BC]" />
               </div>
               <h3 className="text-[0.625rem] sm:text-xs font-bold uppercase tracking-wider text-[#004B8D] truncate">
-                {t('results_parking_program_outcomes_title', t('results_outcome_title', t('results_alignment_title', 'Parking Program Outcomes')))}
+                {t('results_tradeoff_outcomes_title', t('results_parking_program_outcomes_title', 'Parking Program Trade-off Outcomes'))}
               </h3>
             </div>
             <p className="text-xs text-gray-700 leading-snug bg-gray-50 p-2 rounded-lg border border-gray-200 line-clamp-4 sm:line-clamp-none">
-              {persona.outcome || persona.edmontonPolicyFit}
+              {persona.outcome || persona.description}
             </p>
           </div>
         </div>

@@ -234,9 +234,13 @@ export default function App() {
       {/* Top Header Navigation Bar */}
       <header className="h-10 sm:h-11 bg-[#004B8D] text-white flex items-center justify-between px-2.5 sm:px-4 z-30 shadow-xs flex-shrink-0 border-b border-[#003566]">
         <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
-          <div className="w-5 h-5 sm:w-6 sm:h-6 rounded bg-[#FFC72C] flex items-center justify-center font-black text-[#11283f] text-[0.625rem] sm:text-xs shadow-xs flex-shrink-0">
-            {t('header_yeg', 'YEG')}
-          </div>
+          <img
+            id="header-safemobility-compass-logo"
+            src="/SafeMobility_Compass.png"
+            alt={t('header_logo_alt', 'SafeMobility Compass')}
+            className="w-6 h-6 sm:w-7 sm:h-7 object-contain flex-shrink-0 drop-shadow-xs"
+            referrerPolicy="no-referrer"
+          />
           <div className="min-w-0">
             <h1 className="text-xs sm:text-sm font-black tracking-wide flex items-center gap-1.5 leading-none truncate">
               <span className="text-white">{t('header_title_curbside', 'Curbside')}</span>

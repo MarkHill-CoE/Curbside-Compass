@@ -478,9 +478,8 @@ export function applyTextsToData(texts: Record<string, string>): void {
     const outcomeKey = `persona_${pKey}_outcome`;
     if (texts[outcomeKey]) {
       profile.outcome = texts[outcomeKey];
-      profile.edmontonPolicyFit = texts[outcomeKey];
-    } else if (texts[fitKey]) {
-      profile.outcome = texts[fitKey];
+    }
+    if (texts[fitKey]) {
       profile.edmontonPolicyFit = texts[fitKey];
     }
   });

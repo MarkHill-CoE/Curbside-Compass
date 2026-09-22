@@ -2,7 +2,5 @@
   "name": "Curbside Compass",
   "description": "Try to solve Edmonton's Residential Parking Puzzle as an Urban Planner ",
   "requestFramePermissions": [],
-  "majorCapabilities": [
-    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
-  ]
+  "majorCapabilities": []
 }
