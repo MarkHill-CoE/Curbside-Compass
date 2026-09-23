@@ -1,6 +1,6 @@
 import React from 'react';
 import { SurveyQuestion } from '../types';
-import { ChevronLeft, ChevronRight, CheckCircle2, MapPin } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle2, MapPin, Shield } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { triggerFeedback } from '../utils/feedback';
 import { useAppText } from '../context/TextContentContext';
@@ -152,6 +152,14 @@ const SurveyStageComponent: React.FC<SurveyStageProps> = ({
                     {t('q9_opt_out_label', 'I prefer not to provide my postal code')}
                   </span>
                 </label>
+
+                {/* FOIP K-Anonymity Privacy Guarantee Notice */}
+                <div className="flex items-start gap-2.5 p-3 bg-blue-50/90 border border-blue-200 rounded-lg text-xs sm:text-sm text-[#004B8D] mt-2 max-w-lg shadow-xs">
+                  <Shield className="w-4 h-4 text-[#004B8D] flex-shrink-0 mt-0.5" />
+                  <p className="leading-relaxed">
+                    <strong>Personal Privacy Protection (k ≥ 20 Rule):</strong> Under City of Edmonton FOIP guidelines, if an individual postal code receives fewer than 20 responses across the survey, the last three characters will be automatically scrubbed, keeping only the 3-character Forward Sortation Area (e.g. <em>T5J</em>) to ensure you cannot be reverse-traced.
+                  </p>
+                </div>
               </div>
             ) : (
               /* Options List with WAI-ARIA arrow key navigation */

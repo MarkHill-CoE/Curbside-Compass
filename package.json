@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "test:qa": "tsx scripts/qa_audit_256.ts",
+    "scrub:postal": "tsx scripts/scrub_postal_codes.ts",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
