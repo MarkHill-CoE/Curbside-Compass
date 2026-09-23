@@ -125,9 +125,9 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
       setInternalShowControls(valOrFn);
     }
   }, [onToggleControls]);
-  const [curbsideDemandCount, setCurbsideDemandCount] = useState<number>(0);
+  const [curbsideDemandCount, setCurbsideDemandCount] = useState<number>(7);
   const [curbsideStallsCapacity, setCurbsideStallsCapacity] = useState<number>(BASE_LEGAL_CURBSIDE_STALLS + 1);
-  const [curbsidePct, setCurbsidePct] = useState<number>(0);
+  const [curbsidePct, setCurbsidePct] = useState<number>(60);
   const [circlingCarCount, setCirclingCarCount] = useState<number>(0);
   const [isRiotActive, setIsRiotActive] = useState<boolean>(false);
   const [isHarmonyActive, setIsHarmonyActive] = useState<boolean>(false);
@@ -2970,23 +2970,25 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
 
       const activeHouseholdCars = Math.round(configRef.current.householdCarsPerHome * simTotalDwellings);
       const activeVisitorCars = Math.round(configRef.current.visitorPassesPerHome * simTotalDwellings);
-      const totalParkedCars = activeHouseholdCars + activeVisitorCars;
+      const totalContinuousCars = (configRef.current.householdCarsPerHome + configRef.current.visitorPassesPerHome) * simTotalDwellings;
+      const totalParkedCars = Math.round(totalContinuousCars);
       const totalToRender = Math.min(houseCarAssignments.length, totalParkedCars);
 
       const weeklyDeliveries = Math.round(configRef.current.deliveriesPerHomePerWeek * simTotalDwellings);
       updateDeliveryPool(weeklyDeliveries);
 
       const totalDrivewaySpots = Math.min(2, Math.max(1, currentDrivewayCap)) * standardLotsCount;
-      const curbsideDemand = Math.max(0, totalParkedCars - totalDrivewaySpots);
+      const curbsideDemand = Math.max(0, totalContinuousCars - totalDrivewaySpots);
       // When a lot is split for infill and a driveway is removed, curbside total space for parking goes up by 1 car (continuous curb).
       // When the ETS bus stop appears (> 11 dwellings), curbside parking stalls in front of it are removed (1 stall deducted).
       const busStopStallDeduction = simTotalDwellings > 11 ? 1 : 0;
       const currentLegalCurbsideStalls = Math.max(1, BASE_LEGAL_CURBSIDE_STALLS + numPhysicalLotsSplit - busStopStallDeduction);
       const gaugePercent = (curbsideDemand / currentLegalCurbsideStalls) * 100;
 
-      if (curbsideDemand !== lastReportedDemand) {
-        lastReportedDemand = curbsideDemand;
-        setCurbsideDemandCount(curbsideDemand);
+      const roundedDemand = Math.round(curbsideDemand);
+      if (roundedDemand !== lastReportedDemand) {
+        lastReportedDemand = roundedDemand;
+        setCurbsideDemandCount(roundedDemand);
       }
       if (currentLegalCurbsideStalls !== lastReportedStallsCapacity) {
         lastReportedStallsCapacity = currentLegalCurbsideStalls;

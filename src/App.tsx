@@ -74,6 +74,11 @@ export default function App() {
 
   const [simConfig, setSimConfig] = useState<SimulationConfig>(() => {
     try {
+      const savedAnswers = localStorage.getItem('curbsideCompass_answers');
+      const answersObj = savedAnswers ? JSON.parse(savedAnswers) : {};
+      if (!savedAnswers || Object.keys(answersObj).length === 0) {
+        return INITIAL_SIM_CONFIG;
+      }
       const saved = localStorage.getItem('curbsideCompass_simConfig');
       return saved ? JSON.parse(saved) : INITIAL_SIM_CONFIG;
     } catch {

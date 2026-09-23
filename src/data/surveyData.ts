@@ -1,8 +1,8 @@
 import { SurveyQuestion, PersonaResult, SimulationConfig } from '../types';
 
 export const INITIAL_SIM_CONFIG: SimulationConfig = {
-  householdCarsPerHome: 2.5,
-  visitorPassesPerHome: 0.5,
+  householdCarsPerHome: 2.0,
+  visitorPassesPerHome: 0.3714, // Calibrated to 60% initial curbside occupancy (6.6 cars demand / 11 legal curbside stalls)
   drivewayCapacity: 2,
   splitInfillLots: 2,
   deliveriesPerHomePerWeek: 1.0,
