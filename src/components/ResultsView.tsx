@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { PersonaResult, SimulationConfig } from '../types';
-import { Award, MapPin, Target, CheckCircle, Shield, ChevronRight, Compass, Share2 } from 'lucide-react';
+import { Award, MapPin, Target, CheckCircle, Shield, ChevronRight, Compass, Share2, AlertTriangle } from 'lucide-react';
 import { ThankYouView } from './ThankYouView';
 import { PolicyCompassGraph } from './PolicyCompassGraph';
 import { triggerFeedback } from '../utils/feedback';
 import { useAppText } from '../context/TextContentContext';
 import { saveSurveyResponse } from '../services/firebaseService';
+import { detectPII, sanitizeOpenTextInput } from '../utils/securitySanitizer';
 
 interface ResultsViewProps {
   persona: PersonaResult;
@@ -49,6 +50,8 @@ const ResultsViewComponent: React.FC<ResultsViewProps> = ({
     triggerFeedback('submit');
     setIsSaving(true);
     try {
+      // Defense-in-depth sanitization: strips control chars, formula injection prefixes, and auto-redacts PII
+      const sanitized = sanitizeOpenTextInput(feedback, 500, true);
       await saveSurveyResponse({
         persona,
         totalX,
@@ -56,7 +59,7 @@ const ResultsViewComponent: React.FC<ResultsViewProps> = ({
         answers,
         simConfig: config,
         rating,
-        feedback
+        feedback: sanitized
       });
     } catch (err) {
       console.warn('[Firebase] Error saving feedback:', err);
@@ -298,12 +301,32 @@ const ResultsViewComponent: React.FC<ResultsViewProps> = ({
           <textarea
             id="why-feedback"
             value={feedback}
-            onChange={(e) => setFeedback(e.target.value.slice(0, 500))}
+            onChange={(e) => {
+              // Strip ASCII control characters and BiDi Trojan Source overrides while keeping standard multiline input
+              const raw = e.target.value.slice(0, 500).replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F\u202A-\u202E\u2066-\u2069\u200B-\u200D\uFEFF]/g, '');
+              setFeedback(raw);
+            }}
             maxLength={500}
-            rows={1}
+            rows={2}
             placeholder={t('results_why_placeholder', 'Share your thoughts with City of Edmonton planners...')}
-            className="w-full text-xs text-gray-800 p-1.5 sm:p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0081BC] focus:border-[#0081BC] resize-none bg-white leading-normal placeholder:text-gray-400 min-h-[36px] sm:min-h-[44px]"
+            className={`w-full text-xs text-gray-800 p-2 border rounded-lg focus:outline-none focus:ring-2 resize-none bg-white leading-normal placeholder:text-gray-400 min-h-[44px] ${
+              detectPII(feedback).hasPII 
+                ? 'border-amber-400 focus:ring-amber-500 focus:border-amber-500' 
+                : 'border-gray-300 focus:ring-[#0081BC] focus:border-[#0081BC]'
+            }`}
           />
+          {detectPII(feedback).hasPII ? (
+            <div className="mt-1 p-2 bg-amber-50 border border-amber-300 rounded-md text-[0.6875rem] text-amber-900 flex items-start gap-1.5 leading-snug animate-fadeIn">
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <span>
+                {detectPII(feedback).warningMessage || 'Privacy Notice: Please remove phone numbers or email addresses before submitting.'}
+              </span>
+            </div>
+          ) : (
+            <p className="text-[0.625rem] text-gray-500 mt-1">
+              {t('results_privacy_hint', 'Feedback is collected for planning research. Please do not include personal contact details, phone numbers, or full names.')}
+            </p>
+          )}
         </div>
       </div>
 

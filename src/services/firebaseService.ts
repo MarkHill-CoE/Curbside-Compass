@@ -5,6 +5,7 @@ import {
 } from 'firebase/firestore';
 import { getDb, ensureAnonymousAuth } from '../lib/firebase';
 import { PersonaResult, SimulationConfig } from '../types';
+import { sanitizeOpenTextInput } from '../utils/securitySanitizer';
 
 export interface SurveySubmissionData {
   personaId: string;
@@ -78,7 +79,7 @@ export async function saveSurveyResponse(data: {
       : null;
 
     const sanitizedFeedback = typeof data.feedback === 'string'
-      ? data.feedback.trim().slice(0, 500)
+      ? sanitizeOpenTextInput(data.feedback, 500, true)
       : '';
 
     // Sanitize answers dictionary (limit to max 30 keys, 50 chars per key, 100 chars per value)

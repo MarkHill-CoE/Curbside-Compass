@@ -21,8 +21,8 @@ export const SURVEY_QUESTIONS: SurveyQuestion[] = [
       {
         id: 'q1_a',
         label: 'Residents with vehicles in residential parking program areas pay permit fees that cover all program costs.',
-        x: 0,
-        y: -4,
+        x: 4,
+        y: 0,
         hint: 'Residents with vehicles in the program area pay permit fees, which fully cover program costs and reduce street parking by encouraging off-street driveway parking.',
         simEffects: {
           drivewayCapacity: 2,
@@ -32,8 +32,8 @@ export const SURVEY_QUESTIONS: SurveyQuestion[] = [
       {
         id: 'q1_b',
         label: 'Tax-payers cover program costs through property tax revenues.',
-        x: 0,
-        y: 4,
+        x: -4,
+        y: 0,
         hint: 'Since no fee is charged, more vehicles park on the street.',
         simEffects: {
           drivewayCapacity: 1, // only 6 fit in driveway
@@ -51,8 +51,8 @@ export const SURVEY_QUESTIONS: SurveyQuestion[] = [
       {
         id: 'q2_a',
         label: 'Yes.',
-        x: 3,
-        y: 0,
+        x: 0,
+        y: -3,
         hint: 'Limiting on-street parking permits reduces the number of vehicles parked on the street and encourages off-street or driveway parking.',
         simEffects: {
           drivewayCapacity: 2,
@@ -62,8 +62,8 @@ export const SURVEY_QUESTIONS: SurveyQuestion[] = [
       {
         id: 'q2_b',
         label: 'No.',
-        x: -3,
-        y: 0,
+        x: 0,
+        y: 3,
         hint: 'Since no fee is charged, more vehicles park on the street.',
         simEffects: {
           drivewayCapacity: 1,
@@ -113,9 +113,9 @@ export const SURVEY_QUESTIONS: SurveyQuestion[] = [
         label: 'Visitors digitally register their vehicles, with enforcement conducted regularly.',
         x: 3,
         y: -3,
-        hint: 'Since no fee is charged, more vehicles park on the street.',
+        hint: 'Visitor registration and regular enforcement keep curb demand predictable.',
         simEffects: {
-          visitorPassesPerHome: 1.5,
+          visitorPassesPerHome: 0.8,
           enforcementLevel: 'strict'
         }
       },
@@ -124,9 +124,9 @@ export const SURVEY_QUESTIONS: SurveyQuestion[] = [
         label: 'Visitor parking is on a first-come, first-served basis.',
         x: -3,
         y: 3,
-        hint: 'Since no fee is charged, more vehicles park on the street.',
+        hint: 'Since no permit or registration is required, visitor vehicles park freely on the street.',
         simEffects: {
-          visitorPassesPerHome: 1.5,
+          visitorPassesPerHome: 2.2,
           enforcementLevel: 'lenient'
         }
       }
@@ -141,9 +141,9 @@ export const SURVEY_QUESTIONS: SurveyQuestion[] = [
       {
         id: 'q5_a',
         label: 'Residents and visitors — through permit fees, guest pass sales and violation fines.',
-        x: 0,
-        y: -4,
-        hint: 'Since a fee is charged, fewer vehicles park on the street and more park in driveways.',
+        x: 4,
+        y: 0,
+        hint: 'Since user fees and violation fines cover enforcement, curb turnover is prioritized.',
         simEffects: {
           curbsideFeeModel: 'permit',
           householdCarsPerHome: 1.8,
@@ -153,9 +153,9 @@ export const SURVEY_QUESTIONS: SurveyQuestion[] = [
       {
         id: 'q5_b',
         label: 'Edmontonians — through property taxes.',
-        x: 0,
-        y: 4,
-        hint: 'Since no fee is charged, more vehicles park on the street.',
+        x: -4,
+        y: 0,
+        hint: 'Since enforcement is funded by general city taxes, curb usage is open to all residents.',
         simEffects: {
           curbsideFeeModel: 'free',
           householdCarsPerHome: 2.8,
@@ -234,10 +234,10 @@ export const SURVEY_QUESTIONS: SurveyQuestion[] = [
     options: [
       {
         id: 'q8_a',
-        label: 'Allow neighbourhoods to opt into fee-based parking solutions.',
-        x: 4,
-        y: 0,
-        hint: 'Since a fee is charged, fewer vehicles park on the street and more park in driveways.',
+        label: 'Apply proactive, city-wide standardized rules across all mature and developing neighbourhoods.',
+        x: 0,
+        y: -4,
+        hint: 'City-wide standards ensure consistent parking management across all Edmonton communities.',
         simEffects: {
           drivewayCapacity: 2,
           householdCarsPerHome: 2.0
@@ -245,13 +245,13 @@ export const SURVEY_QUESTIONS: SurveyQuestion[] = [
       },
       {
         id: 'q8_b',
-        label: 'Apply one city-wide set of rules.',
-        x: -4,
-        y: 0,
-        hint: 'Without a fee, more vehicles park on the street. If a fee is charged, fewer vehicles park on the street and more residents park in their driveways.',
+        label: 'Allow neighbourhoods to opt into local solutions on a block-by-block basis.',
+        x: 0,
+        y: 4,
+        hint: 'Neighbourhood-by-neighbourhood opt-in provides local flexibility with fewer blanket rules.',
         simEffects: {
           drivewayCapacity: 1,
-          householdCarsPerHome: 3.0
+          householdCarsPerHome: 2.8
         }
       }
     ]
@@ -367,10 +367,10 @@ export const PERSONA_PROFILES: Record<string, PersonaResult> = {
     badgeColor: '#0081BC'
   },
 
-  // Row 3: Fewer / Few Rules (0 <= Y <= 9)
+  // Row 3: Fewer / Few Rules (0 <= Y <= 4)
   easy_neighbor: {
     id: 'easy-neighbor', quadrant: 'Q3', xRange: 'taxpayer', yRange: 'open',
-    title: 'Easy Neighbor', subtitle: 'Fewer Rules • Shared Costs',
+    title: 'Easy Neighbour', subtitle: 'Fewer Rules • Shared Costs',
     description: 'You like fewer parking rules to make things easy. You prefer that everyone shares the costs through taxes, rather than just drivers.',
     keyPriorities: ['Easy access', 'Taxpayer funding'],
     edmontonPolicyFit: 'Aligns with open suburban parking.',
@@ -405,10 +405,10 @@ export const PERSONA_PROFILES: Record<string, PersonaResult> = {
     badgeColor: '#FFC72C'
   },
 
-  // Row 4: Almost No / Very Few Rules (Y > 9)
+  // Row 4: Almost No / Very Few Rules (Y > 4)
   happy_neighbor: {
     id: 'happy-neighbor', quadrant: 'Q3', xRange: 'taxpayer', yRange: 'open',
-    title: 'Happy Neighbor', subtitle: 'Almost No Rules • Strong Taxpayer',
+    title: 'Happy Neighbour', subtitle: 'Almost No Rules • Strong Taxpayer',
     description: 'You want almost no parking rules. You strongly believe everyone should share the costs through taxes, not just drivers.',
     keyPriorities: ['Complete freedom', 'Fully public funding'],
     edmontonPolicyFit: 'Aligns with historically unregulated rural/suburban edges.',
@@ -417,7 +417,7 @@ export const PERSONA_PROFILES: Record<string, PersonaResult> = {
   },
   zen_neighbor: {
     id: 'zen-neighbor', quadrant: 'Q3', xRange: 'taxpayer', yRange: 'open',
-    title: 'Zen Neighbor', subtitle: 'Very Few Rules • Shared Costs',
+    title: 'Zen Neighbour', subtitle: 'Very Few Rules • Shared Costs',
     description: 'You want very few parking rules for more freedom. You slightly prefer that everyone shares the costs through taxes, not just car owners.',
     keyPriorities: ['High freedom', 'Shared municipal cost'],
     edmontonPolicyFit: 'Aligns with unenforced open streets.',
@@ -445,15 +445,15 @@ export const PERSONA_PROFILES: Record<string, PersonaResult> = {
 };
 
 export function calculatePersona(totalX: number, totalY: number): PersonaResult {
-  const isCol1 = totalX < -8;
-  const isCol2 = totalX >= -8 && totalX < 0;
-  const isCol3 = totalX >= 0 && totalX <= 8;
-  const isCol4 = totalX > 8;
+  const isCol1 = totalX < -4;
+  const isCol2 = totalX >= -4 && totalX < 0;
+  const isCol3 = totalX >= 0 && totalX <= 4;
+  const isCol4 = totalX > 4;
 
-  const isRow1 = totalY < -9;
-  const isRow2 = totalY >= -9 && totalY < 0;
-  const isRow3 = totalY >= 0 && totalY <= 9;
-  const isRow4 = totalY > 9;
+  const isRow1 = totalY < -4;
+  const isRow2 = totalY >= -4 && totalY < 0;
+  const isRow3 = totalY >= 0 && totalY <= 4;
+  const isRow4 = totalY > 4;
 
   if (isCol1) {
     if (isRow1) return PERSONA_PROFILES.block_resident;

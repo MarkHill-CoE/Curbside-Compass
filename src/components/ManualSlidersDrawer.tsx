@@ -183,6 +183,25 @@ export const ManualSlidersDrawer: React.FC<ManualSlidersDrawerProps> = ({
           </span>
         </div>
 
+        {/* Test 20s Traffic Jam & Police Response */}
+        <div className="pt-1">
+          <button
+            type="button"
+            onClick={() => {
+              triggerFeedback('button');
+              if (typeof (window as any).__dispatchPoliceBlockageTest === 'function') {
+                (window as any).__dispatchPoliceBlockageTest();
+              }
+              onClose();
+            }}
+            className="w-full py-1.5 px-3 bg-[#002B49] hover:bg-[#001D33] border border-[#3B82F6]/60 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2 cursor-pointer text-xs min-h-[36px] active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFC72C]"
+            title="Test 20-second lane blockage: dispatches EPS police cruiser with lights & sirens to clear traffic"
+          >
+            <span className="text-base">🚨</span>
+            <span>Simulate 20s Jam (Dispatch Police)</span>
+          </button>
+        </div>
+
         {/* Bottom Action Buttons: Replaced enforcement level and reshuffle */}
         <div className="flex gap-2 pt-2 border-t border-white/10">
           {onOpenGauge && (

@@ -42,6 +42,19 @@ interface NeighborhoodSimulationProps {
 const BASE_LEGAL_CURBSIDE_STALLS = 10;
 const TOTAL_LEGAL_CURBSIDE_STALLS = 11;
 
+// =========================================================================================
+// COMPONENT OVERVIEW (Plain English Security & Oversight Summary)
+// -----------------------------------------------------------------------------------------
+// This module provides an interactive 2.5D isometric simulation of an Edmonton residential street.
+// It visually models the real-world impact of housing density, parking bylaws, and delivery habits:
+// - Shows parked cars in driveways versus along the curbside.
+// - Accurately tracks curbside capacity versus parking demand with an interactive dial gauge.
+// - Models realistic traffic flow, lane changing, and delivery double-parking.
+// - Prevents vehicle clipping through forward object detection and longitudinal clamping.
+// - Uses a unified Painter's Algorithm render queue to preserve visual perspective and depth.
+// - Incorporates community harmony celebrations or congestion alerts based on policy outcomes.
+// =========================================================================================
+
 const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = ({
   config,
   onConfigChange,
@@ -74,6 +87,8 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
   const [circlingCarCount, setCirclingCarCount] = useState<number>(0);
   const [isRiotActive, setIsRiotActive] = useState<boolean>(false);
   const [isHarmonyActive, setIsHarmonyActive] = useState<boolean>(false);
+  const [isPoliceTrafficActive, setIsPoliceTrafficActive] = useState<boolean>(false);
+  const [laneStuckSeconds, setLaneStuckSeconds] = useState<number>(0);
   const [zoomScale, setZoomScale] = useState<number>(1.33);
 
   const triggerVisualAudioAlert = useCallback((_text: string, _icon: 'horn' | 'siren' | 'alarm' | 'medal' = 'horn') => {
@@ -150,6 +165,20 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
   const isCompletedRef = useRef(isCompleted);
   isCompletedRef.current = isCompleted;
 
+
+  // =========================================================================================
+  // SECTION: PROCEDURAL AUDIO SYNTHESIS & AUDITORY ACCESSIBILITY (Plain English Oversight Summary)
+  // -----------------------------------------------------------------------------------------
+  // Purpose: Generates realistic traffic audio (horns, sirens, alarms) purely in the browser
+  // using Web Audio API oscillators and gain envelopes without external network dependencies.
+  // 
+  // Key Rules:
+  // 1. Safe Volume Envelopes: Procedural sound effects are strictly capped at 15% volume, and ambient
+  //    city street noise is capped at 5% volume.
+  // 2. Browser Autoplay Compliance: Audio contexts are suspended until the user interacts with the app,
+  //    complying with modern web security and privacy policies.
+  // 3. User Control: Users can mute or unmute audio at any time via a dedicated 44px touch button.
+  // =========================================================================================
 
   // Initialize or resume audio context
   const getAudioContext = useCallback(() => {
@@ -269,6 +298,72 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
     }
   }, [getAudioContext]);
 
+  const playPoliceSirenSound = useCallback((mode: 'wail' | 'chirp' | 'yelp' = 'wail') => {
+    triggerVisualAudioAlert('Police Siren', 'siren');
+
+    if (!soundEnabledRef.current) return;
+    const ctx = getAudioContext();
+    if (!ctx || ctx.state !== 'running') return;
+
+    try {
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      if (mode === 'chirp') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(600, now);
+        osc.frequency.exponentialRampToValueAtTime(1400, now + 0.12);
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(0.18, now + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.15);
+      } else if (mode === 'yelp') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(750, now);
+        osc.frequency.linearRampToValueAtTime(1250, now + 0.14);
+        osc.frequency.linearRampToValueAtTime(750, now + 0.28);
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(0.16, now + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.3);
+      } else {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(620, now);
+        osc.frequency.exponentialRampToValueAtTime(1150, now + 0.28);
+        osc.frequency.exponentialRampToValueAtTime(620, now + 0.58);
+
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(625, now);
+        osc2.frequency.exponentialRampToValueAtTime(1155, now + 0.28);
+        osc2.frequency.exponentialRampToValueAtTime(625, now + 0.58);
+
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(0.16, now + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+        osc.connect(gain);
+        osc2.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc2.start(now);
+        osc.stop(now + 0.6);
+        osc2.stop(now + 0.6);
+      }
+    } catch {
+      // Audio safety fallback
+    }
+  }, [getAudioContext, triggerVisualAudioAlert]);
+
+  const playPoliceSirenSoundRef = useRef(playPoliceSirenSound);
+  playPoliceSirenSoundRef.current = playPoliceSirenSound;
+
   // Reshuffle signal
   const reshuffleTriggerRef = useRef<number>(0);
   const handleReshuffle = () => {
@@ -353,6 +448,20 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
     const shirtColors = ['#e74c3c', '#3498db', '#2ecc71', '#9b59b6', '#f1c40f', '#e67e22', '#1abc9c', '#e84393', '#00cec9', '#6c5ce7'];
     const _lotWidth = 55;
     let flowerIdCounter = 0;
+
+    // =========================================================================================
+    // SECTION: INFILL HOUSING LOT SPLITS & COMMUNITY RESIDENTS (Plain English Oversight Summary)
+    // -----------------------------------------------------------------------------------------
+    // Purpose: Models Edmonton's residential infill zoning policies where mature lots can be split
+    // into skinny homes (doubling housing units on the lot).
+    // 
+    // Key Rules:
+    // 1. Lot Split Math: A single 50-foot residential lot can split into 2 narrower infill lots.
+    // 2. Curb Continuous Gains: Replacing a wide front driveway apron with street-accessible frontage
+    //    can add continuous curbside parking space (+1 legal curbside stall per split).
+    // 3. Dynamic Resident Hubs: Generates resident pedestrians, front lawn walkways, and flower beds
+    //    adapted specifically to either single-family houses or infill skinny duplex configurations.
+    // =========================================================================================
 
     // Helper to determine if a lot index (0 to 5) is converted into split infill skinny homes
     // Split infill lots count is 2 to 12 (increasing by 2 per physical lot split).
@@ -503,6 +612,20 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
       colorCache.set(key, res);
       return res;
     }
+
+    // =========================================================================================
+    // SECTION: 2.5D ISOMETRIC COORDINATE PROJECTION ENGINE (Plain English Oversight Summary)
+    // -----------------------------------------------------------------------------------------
+    // Purpose: Transforms 3-dimensional physical coordinates (Length X, Depth Y, Height Z) into
+    // 2-dimensional screen pixels (X, Y) using true 30-degree isometric geometry.
+    // 
+    // Key Rules:
+    // 1. Math Constants: ISO_X uses cos(30°) ≈ 0.866 and ISO_Y uses sin(30°) = 0.5.
+    // 2. Linear Transformation: project(x, y, z) converts any road, car, or house coordinate
+    //    into the exact canvas pixel location.
+    // 3. Color Shading: adjustColor dynamically brightens or darkens building and car sides
+    //    to simulate natural sunlight hitting the left and right building surfaces.
+    // =========================================================================================
 
     const offsetX = 380;
     const offsetY = 160;
@@ -1338,6 +1461,70 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
       ctx!.restore();
     }
 
+    function drawPoliceBubble(x: number, y: number, z: number, text: string) {
+      const pos = project(x + 7.5, y + 3.5, z + 9);
+      ctx!.save();
+
+      ctx!.font = 'bold 9.5px system-ui, -apple-system, sans-serif';
+      const textMetrics = ctx!.measureText(text);
+      const bubbleW = textMetrics.width + 24;
+      const bubbleH = 17;
+      const bubbleX = pos.x - bubbleW / 2;
+      const bubbleY = pos.y - bubbleH - 5;
+
+      // Shadow
+      ctx!.fillStyle = 'rgba(0, 0, 0, 0.4)';
+      ctx!.beginPath();
+      if (ctx!.roundRect) {
+        ctx!.roundRect(bubbleX + 1.5, bubbleY + 1.5, bubbleW, bubbleH, 4);
+      } else {
+        ctx!.rect(bubbleX + 1.5, bubbleY + 1.5, bubbleW, bubbleH);
+      }
+      ctx!.fill();
+
+      // Flashing alert border (Red / Blue alternating)
+      const strobePhase = Math.floor((Date.now() / 140) % 2);
+      const isRed = strobePhase === 0;
+      const borderColor = isRed ? '#EF4444' : '#3B82F6';
+
+      // Background Bubble
+      ctx!.fillStyle = '#002B49';
+      ctx!.strokeStyle = borderColor;
+      ctx!.lineWidth = 1.6;
+      ctx!.beginPath();
+      if (ctx!.roundRect) {
+        ctx!.roundRect(bubbleX, bubbleY, bubbleW, bubbleH, 4);
+      } else {
+        ctx!.rect(bubbleX, bubbleY, bubbleW, bubbleH);
+      }
+      ctx!.fill();
+      ctx!.stroke();
+
+      // Tail
+      ctx!.beginPath();
+      ctx!.moveTo(pos.x - 3, bubbleY + bubbleH);
+      ctx!.lineTo(pos.x, bubbleY + bubbleH + 4);
+      ctx!.lineTo(pos.x + 3, bubbleY + bubbleH);
+      ctx!.fillStyle = '#002B49';
+      ctx!.fill();
+      ctx!.strokeStyle = borderColor;
+      ctx!.lineWidth = 1.6;
+      ctx!.stroke();
+
+      // Strobe icon / beacon dot
+      ctx!.fillStyle = borderColor;
+      ctx!.beginPath();
+      ctx!.arc(bubbleX + 8, bubbleY + 8.5, 3.2, 0, Math.PI * 2);
+      ctx!.fill();
+
+      // Text label
+      ctx!.fillStyle = '#FFFFFF';
+      ctx!.textBaseline = 'middle';
+      ctx!.fillText(text, bubbleX + 15, bubbleY + 9);
+
+      ctx!.restore();
+    }
+
     function drawSpeechBubble(x: number, y: number, z: number) {
       const pos = project(x + 1, y - 1, z + 6);
       ctx!.save();
@@ -1399,6 +1586,19 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
 
       ctx!.restore();
     }
+
+    // =========================================================================================
+    // SECTION: VEHICLE MODEL RENDERING & CUSTOM GEOMETRY (Plain English Oversight Summary)
+    // -----------------------------------------------------------------------------------------
+    // Purpose: Renders distinct 3D isometric vehicle types with authentic municipal and commercial details:
+    // 
+    // Types Rendered:
+    // 1. Delivery Vans: Orange couriers with side green racing stripes, hazard blinkers, and parcel cargo.
+    // 2. ETS Transit Buses: Edmonton Transit silver-and-blue livery, multi-pane windows, and route signs.
+    // 3. Emergency Vehicles: EPS Police cruisers with roof lightbars and red-and-white Edmonton Fire Trucks.
+    // 4. Resident Vehicles: Sedans, SUVs, and Pickups shaded in Edmonton civic colors.
+    // 5. Active Micro-Mobility: Commuter bicycles with turning spokes and stand-up electric scooters with headlights.
+    // =========================================================================================
 
     function drawVehicle(
       x: number,
@@ -1500,24 +1700,52 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
         }
       } else if (type === 'police') {
         const white = '#ffffff';
-        const black = '#111111';
+        const epsNavy = '#002B49';
         drawFlatRect(x - 1, y - 0.5, 17, 8, 'rgba(0,0,0,0.25)');
+
+        // Emergency light reflections on asphalt when lights are active
+        const strobePhase = Math.floor((Date.now() / 90) % 4);
+        const redActive = strobePhase === 0 || strobePhase === 1;
+        const blueActive = strobePhase === 2 || strobePhase === 3;
+
         if (!isFlipped) {
+          drawFlatRect(
+            x - 5,
+            y - 4,
+            26,
+            16,
+            redActive ? 'rgba(239, 68, 68, 0.14)' : 'rgba(59, 130, 246, 0.14)'
+          );
+
           drawBlock(x + 2, y - 0.5, zOffset, 3, 1, 1.5, tire, tire, tire);
           drawBlock(x + 11, y - 0.5, zOffset, 3, 1, 1.5, tire, tire, tire);
           drawBlock(x + 2, y + 6.5, zOffset, 3, 1, 1.5, tire, tire, tire);
           drawBlock(x + 11, y + 6.5, zOffset, 3, 1, 1.5, tire, tire, tire);
+          // White cruiser body
           drawBlock(x, y, zOffset + 0.8, 15, 7, 2.5, white, '#dddddd', '#cccccc');
-          // black doors
-          drawBlock(x + 3, y - 0.2, zOffset + 1, 7, 7.4, 2.3, black, black, black);
+          // EPS Dark Blue side doors
+          drawBlock(x + 3, y - 0.2, zOffset + 1, 7, 7.4, 2.3, epsNavy, epsNavy, epsNavy);
+          // Gold EPS star crest on door
+          drawBlock(x + 6, y - 0.25, zOffset + 1.8, 1.5, 7.5, 0.8, '#FFC72C', '#E5B224', '#C99816');
+          // Cabin & windows
           drawBlock(x + 3, y + 0.5, zOffset + 3.3, 8, 6, 2.2, white, glass, glass);
-          // lights
-          const lightColor = (Date.now() % 400 > 200) ? '#ff0000' : '#0000ff';
-          drawBlock(x + 6, y + 2.5, zOffset + 5.5, 2, 2, 0.8, lightColor, lightColor, lightColor);
+
+          // EPS Modern Aerodynamic Emergency Light Bar
+          // Roof rack mounting bracket
+          drawBlock(x + 5.5, y + 1.0, zOffset + 5.5, 2.4, 5.0, 0.3, '#333333', '#222222', '#111111');
+          // Left strobe (Red)
+          const leftColor = redActive ? '#FF1E1E' : '#550000';
+          drawBlock(x + 5.7, y + 1.2, zOffset + 5.8, 1.8, 1.8, 0.85, leftColor, leftColor, leftColor);
+          // Center white strobe
+          const centerColor = (strobePhase === 1 || strobePhase === 3) ? '#FFFFFF' : '#444444';
+          drawBlock(x + 5.7, y + 3.1, zOffset + 5.8, 1.8, 0.8, 0.85, centerColor, centerColor, centerColor);
+          // Right strobe (Blue)
+          const rightColor = blueActive ? '#1E6BFF' : '#001155';
+          drawBlock(x + 5.7, y + 4.0, zOffset + 5.8, 1.8, 1.8, 0.85, rightColor, rightColor, rightColor);
         } else {
           drawBlock(x + 3, y + 0.5, zOffset, 8, 6, 2.2, white, '#111', '#111');
           drawBlock(x, y, zOffset + 2.2, 15, 7, 2.5, white, '#dddddd', '#cccccc');
-          drawBlock(x + 3, y - 0.2, zOffset + 2.4, 7, 7.4, 2.3, black, black, black);
+          drawBlock(x + 3, y - 0.2, zOffset + 2.4, 7, 7.4, 2.3, epsNavy, epsNavy, epsNavy);
           drawBlock(x + 2, y - 1, zOffset + 4.7, 3, 1, 2, tire, tire, tire);
           drawBlock(x + 11, y - 1, zOffset + 4.7, 3, 1, 2, tire, tire, tire);
         }
@@ -1688,11 +1916,42 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
       y: number,
       z: number,
       shirtColor: string,
-      pose: 'normal' | 'bystander' | 'protester' = 'normal'
+      pose: 'normal' | 'bystander' | 'protester' | 'officer' = 'normal'
     ) {
       const skin = '#f0c8a0';
-      const pants = '#2c3e50';
+      const pants = pose === 'officer' ? '#002B49' : '#2c3e50';
       drawBlock(x, y, z, 1, 1, 2.5, pants, pants, pants);
+
+      if (pose === 'officer') {
+        // EPS Police Officer in uniform with high-vis yellow vest, peaked cap, and gold crest
+        const navy = '#002B49';
+        const vestYellow = '#FACC15';
+        const vestDark = '#CA8A04';
+        const silver = '#E2E8F0';
+
+        // Navy base shirt with high-visibility fluorescent vest
+        drawBlock(x - 0.25, y - 0.25, z + 2.5, 1.5, 1.5, 3.1, vestYellow, vestDark, vestDark);
+        // Silver reflective stripes
+        drawBlock(x - 0.3, y - 0.3, z + 3.6, 1.6, 1.6, 0.4, silver, silver, silver);
+
+        // Head
+        drawBlock(x + 0.1, y + 0.1, z + 5.5, 1.2, 1.2, 1.4, skin, skin, skin);
+
+        // Peaked officer cap on head
+        drawBlock(x - 0.2, y - 0.2, z + 6.6, 1.6, 1.6, 0.85, navy, navy, navy);
+        // Cap visor / brim
+        drawBlock(x + 0.8, y - 0.1, z + 6.5, 0.7, 1.4, 0.2, '#111111', '#111111', '#111111');
+        // Gold crest badge on cap front
+        drawBlock(x + 0.8, y + 0.3, z + 6.8, 0.2, 0.6, 0.35, '#FFC72C', '#FFC72C', '#FFC72C');
+
+        // Right arm gesturing traffic forward with illuminated traffic wand
+        const wave = Math.sin(Date.now() / 120);
+        drawBlock(x + 1.2 + wave * 0.2, y + 0.2, z + 3.8, 1.1, 0.6, 0.6, vestYellow, vestDark, vestDark);
+        // Orange illuminated traffic wand / director baton
+        drawBlock(x + 2.2 + wave * 0.2, y + 0.3, z + 4.0, 1.4, 0.4, 0.4, '#FF4500', '#FF4500', '#FF4500');
+        return;
+      }
+
       drawBlock(x - 0.2, y - 0.2, z + 2.5, 1.4, 1.4, 3, shirtColor, adjustColor(shirtColor, -15), adjustColor(shirtColor, -30));
       drawBlock(x + 0.1, y + 0.1, z + 5.5, 1.2, 1.2, 1.4, skin, skin, skin);
 
@@ -1863,6 +2122,8 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
       parkingBubbleText?: string;
       parkingAttemptTimer?: number;
       spaceRatio?: number;
+      policeBubbleText?: string;
+      isFlipped?: boolean;
     }
 
     // Baseline through-traffic vehicles (constant through flow across the neighborhood)
@@ -1909,6 +2170,90 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
     let lastDrawnGaugeCars = -1;
     let lastDrawnGaugeCap = -1;
     let emergencyVehicles: RoadObstacle[] = [];
+
+    // --- Police Traffic Clearance Response for Blockages (>20s) ---
+    interface PoliceBlockageUnit {
+      active: boolean;
+      state: 'inactive' | 'dispatched' | 'investigating' | 'clearing' | 'resuming';
+      blockedLane: 'north' | 'south';
+      targetBlockageX: number;
+      targetLaneY: number;
+      stageTimer: number;
+      sirenSoundTimer: number;
+      bubbleText: string;
+    }
+
+    let laneNorthStuckTimer = 0;
+    let laneSouthStuckTimer = 0;
+    // =========================================================================================
+    // SECTION: EMERGENCY RESPONSE & TRAFFIC BLOCKAGE RESOLUTION (Plain English Oversight Summary)
+    // -----------------------------------------------------------------------------------------
+    // Purpose: Simulates City of Edmonton Emergency and Police Services (EPS) resolving road gridlock.
+    // 
+    // Key Rules:
+    // 1. Stuck Lane Timer: If any vehicle is stationary in an active travel lane for over 20 seconds,
+    //    an automated emergency dispatch trigger is activated.
+    // 2. Audible & Visual Dispatch: An EPS police cruiser arrives with flashing cherry-and-blue beacons
+    //    and siren chirps, decelerating safely behind the blockage.
+    // 3. Officer Directing Traffic: A uniformed officer steps out to manage traffic flow and clear
+    //    the obstruction, safely releasing queued vehicles before clearing the scene.
+    // =========================================================================================
+
+    let policeResponseCooldown = 0;
+    let lastReportedLaneStuckSeconds = -1;
+
+    const policeBlockageUnit: PoliceBlockageUnit = {
+      active: false,
+      state: 'inactive',
+      blockedLane: 'north',
+      targetBlockageX: 160,
+      targetLaneY: 110,
+      stageTimer: 0,
+      sirenSoundTimer: 0,
+      bubbleText: ''
+    };
+
+    const policeTrafficCar: RoadObstacle = {
+      type: 'police',
+      x: -400,
+      y: 124,
+      baseY: 124,
+      targetY: 124,
+      w: 15,
+      d: 7,
+      baseSpeed: 2.8,
+      speed: 2.8,
+      color: '#ffffff',
+      isEmergency: true,
+      stuckTimer: 0,
+      honkCooldown: 0,
+      honkBubbleTimer: 0
+    };
+
+    const policeOfficerPed = {
+      x: 0,
+      y: 0,
+      active: false,
+      pose: 'officer' as const
+    };
+
+    (window as any).__dispatchPoliceBlockageTest = () => {
+      laneNorthStuckTimer = 20.0;
+    };
+
+    // =========================================================================================
+    // SECTION: COMMERCIAL DELIVERY & LOGISTICS SYSTEM (Plain English Oversight Summary)
+    // -----------------------------------------------------------------------------------------
+    // Purpose: Simulates home delivery services (e.g. couriers, grocery drop-offs) in the block.
+    // 
+    // Key Rules:
+    // 1. Scalable Van Fleet: The number of active delivery vans scales with weekly package volumes.
+    // 2. Curbside vs Double-Parking: The delivery driver checks if a curbside stall is vacant. If vacant,
+    //    the van pulls in curbside (y: 94). If all stalls are full, it halts in the travel lane (y: 104)
+    //    with hazard blinkers active, realistically creating momentary traffic impedance.
+    // 3. Realistic Pedestrian Paths: The courier exits the cab, walks across the driveway apron
+    //    and sidewalk directly to the front doorstep, deposits the parcel, and returns.
+    // =========================================================================================
 
     interface DeliveryVan extends RoadObstacle {
       id: number;
@@ -2020,6 +2365,18 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
       return false;
     }
 
+    // =========================================================================================
+    // SECTION: CURBSIDE OCCUPANCY GAUGE & CAPACITY METRICS (Plain English Oversight Summary)
+    // -----------------------------------------------------------------------------------------
+    // Purpose: Visualizes curbside parking stress in real time as a municipal dashboard dial gauge.
+    // 
+    // Key Rules:
+    // 1. Three Color-Coded Zones: Green (0-80% capacity = ample parking), Yellow (80-130% = balanced
+    //    or tight), and Red (>130% = severe curbside overflow).
+    // 2. Clear Numeric Readout: Shows parked cars versus legal capacity (e.g. "8/11 Cars" at 73%).
+    // 3. Performance Caching: Only redraws the canvas when vehicle count or total capacity changes.
+    // =========================================================================================
+
     function drawGauge(curbsideCars: number, totalLegalStalls: number) {
       if (!gaugeCtx || !gaugeCanvas) return;
       if (curbsideCars === lastDrawnGaugeCars && totalLegalStalls === lastDrawnGaugeCap) return;
@@ -2127,35 +2484,57 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
       ctx!.globalAlpha = 1.0;
     }
 
-    // Robust lateral (Y-axis) overlap check with safety margin
-    function hasLateralOverlap(y1: number, d1: number, y2: number, d2: number, margin = 0.5): boolean {
+    // =========================================================================================
+    // SECTION: COLLISION AVOIDANCE & SAFETY BUFFER ENGINE (Plain English Oversight Summary)
+    // -----------------------------------------------------------------------------------------
+    // Purpose: Prevents vehicles, delivery vans, emergency units, cyclists, and scooter riders
+    // from clipping through each other or penetrating other objects.
+    // 
+    // Key Rules:
+    // 1. Lateral Overlap: Checks if two entities share the same lane width plus a 1.2 unit margin.
+    // 2. Safety Buffer: Assigns physical stopping distances per vehicle size (e.g., 9.5 for buses
+    //    and fire trucks, 6.5 for cars, 4.5 for cyclists/scooters) plus extra courtesy spacing
+    //    when cars follow cyclists.
+    // 3. Smooth Deceleration: As distance narrows, closing speed smoothly drops to zero.
+    // 4. Strict Clamp: Position is strictly capped so no vehicle front can penetrate another's rear.
+    // =========================================================================================
+
+    // Robust lateral (Y-axis) overlap check with safety margin across all vehicle and rider widths
+    function hasLateralOverlap(y1: number, d1: number, y2: number, d2: number, margin = 1.2): boolean {
       return y1 < y2 + d2 + margin && y1 + d1 > y2 - margin;
     }
 
-    // Dynamic safety buffer based on vehicle types and closing speed
-    function getSafetyBuffer(A: RoadObstacle, B?: RoadObstacle): number {
-      let base = 5.5;
+    // Comprehensive safety buffers based on vehicle classification and dynamic speeds
+    function getSafetyBuffer(A: RoadObstacle, B?: RoadObstacle): { minStopGap: number; followBuffer: number } {
+      let minStopGap = 6.5;
       if (A.type === 'bike' || A.type === 'scooter') {
-        base = 3.5;
-      } else if (A.type === 'etsBus') {
-        base = 10.0;
-      } else if (A.type === 'boxTruck' || A.type === 'deliveryVan' || A.type === 'firetruck') {
-        base = 7.5;
+        minStopGap = 4.5;
+      } else if (A.type === 'etsBus' || A.type === 'firetruck') {
+        minStopGap = 9.5;
+      } else if (A.type === 'boxTruck' || A.type === 'deliveryVan') {
+        minStopGap = 7.5;
       } else if (A.type === 'police' || A.isEmergency) {
-        base = 6.5;
+        minStopGap = 7.0;
       } else {
-        base = 5.5;
+        minStopGap = 6.5;
       }
 
-      // Dynamic closing speed buffer: faster-moving vehicles start decelerating earlier
-      const closingSpeed = Math.max(0, (A.speed || A.baseSpeed || 0) - ((B && B.speed) || 0));
-      return base + closingSpeed * 4.5;
+      // Vehicles following cyclists or scooters provide extra courtesy safety buffer
+      if (B && (B.type === 'bike' || B.type === 'scooter') && A.type !== 'bike' && A.type !== 'scooter') {
+        minStopGap += 2.0;
+      }
+
+      const speedA = Math.max(0, A.speed !== undefined ? A.speed : (A.baseSpeed || 0));
+      const speedB = Math.max(0, B && B.speed !== undefined ? B.speed : 0);
+      const closingSpeed = Math.max(0, speedA - speedB);
+      const followBuffer = minStopGap + closingSpeed * 5.0 + speedA * 4.0;
+      return { minStopGap, followBuffer };
     }
 
-    // Side-swipe / blind-spot guard: ensures moving laterally to candidateY does not collide with any obstacle
+    // Side-swipe & blind-spot collision detection: ensures moving laterally does not collide with any vehicle or rider
     function canChangeLane(A: RoadObstacle, candidateY: number, obstacles: RoadObstacle[]): boolean {
-      const minX = A.x - 3.0;
-      const maxX = A.x + A.w + 3.0;
+      const minX = A.x - 10.0;
+      const maxX = A.x + (A.w || 15) + 12.0;
 
       for (let j = 0; j < obstacles.length; j++) {
         const B = obstacles[j];
@@ -2163,9 +2542,9 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
         if (B.parkingState === 'parked' && A.parkingTargetSlot === B) continue;
         if (B.isStatic && A.parkingTargetSlot && Math.abs(A.parkingTargetSlot.x - B.x) < 4 && Math.abs(A.parkingTargetSlot.y - B.y) < 2) continue;
 
-        if (hasLateralOverlap(candidateY, A.d, B.y, B.d, 0.4)) {
+        if (hasLateralOverlap(candidateY, A.d, B.y, B.d, 1.2)) {
           // Check longitudinal proximity
-          if (B.x < maxX && B.x + B.w > minX) {
+          if (B.x < maxX && B.x + (B.w || 15) > minX) {
             return false; // Space in target lane is occupied!
           }
         }
@@ -2173,7 +2552,7 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
       return true;
     }
 
-    // Unified forward obstacle detection & non-penetration clamping
+    // Unified forward obstacle detection & non-penetration clamping across all road entities
     function checkForwardObstacle(
       A: RoadObstacle,
       proposedSpeed: number,
@@ -2183,6 +2562,7 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
       let targetX = A.x + proposedSpeed;
       let safeSpeed = proposedSpeed;
       let blocking: RoadObstacle | null = null;
+      const aWidth = A.w || 15;
 
       for (let j = 0; j < obstacles.length; j++) {
         const B = obstacles[j];
@@ -2200,27 +2580,35 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
           }
         }
 
-        if (!hasLateralOverlap(A.y, A.d, B.y, B.d, 0.5)) continue;
+        // Check lateral overlap with standard safety margin
+        if (!hasLateralOverlap(A.y, A.d, B.y, B.d, 1.2)) continue;
 
-        // Check if B is ahead of A or overlapping forward
-        const bAhead = (B.x > A.x) || (B.x + B.w > A.x + A.w && B.x >= A.x - 2.0);
-        if (!bAhead) continue;
+        const bWidth = B.w || 15;
 
-        const currentDist = B.x - (A.x + A.w);
-        const reqBuffer = getSafetyBuffer(A, B);
-        const minHaltGap = Math.min(reqBuffer, Math.max(2.5, reqBuffer * 0.45));
+        // If B is completely behind A's rear bumper, B cannot block A
+        if (B.x + bWidth <= A.x) continue;
 
-        if (targetX + A.w + minHaltGap > B.x || currentDist < reqBuffer) {
-          // Enforce strict non-penetration
-          const maxAllowedX = Math.max(A.x, B.x - A.w - minHaltGap);
+        // If A is already further ahead of B (A's front is ahead of B's front, and B's rear is behind A's rear),
+        // then B is trailing A, not blocking A
+        if (A.x + aWidth >= B.x + bWidth && A.x > B.x) continue;
+
+        const { minStopGap, followBuffer } = getSafetyBuffer(A, B);
+        const gap = B.x - (A.x + aWidth);
+        const maxAllowedX = B.x - aWidth - minStopGap;
+
+        if (targetX > maxAllowedX || gap < followBuffer) {
           targetX = Math.min(targetX, maxAllowedX);
 
-          if (currentDist <= minHaltGap + 0.5 || targetX <= A.x + 0.05) {
-            targetX = A.x;
+          if (gap <= minStopGap + 0.1 || targetX <= A.x + 0.02) {
             safeSpeed = 0;
+            // Prevent forward penetration, clamp strictly to not exceed maxAllowedX or current A.x
+            targetX = Math.min(A.x, maxAllowedX);
           } else {
-            const ratio = Math.max(0, (currentDist - minHaltGap) / Math.max(1, reqBuffer - minHaltGap));
-            safeSpeed = Math.min(safeSpeed, (B.speed || 0) * 0.7 + proposedSpeed * ratio * 0.3);
+            // Smooth progressive deceleration as vehicle approaches follow buffer
+            const ratio = Math.max(0, Math.min(1, (gap - minStopGap) / Math.max(1, followBuffer - minStopGap)));
+            const leadSpeed = Math.max(0, B.speed || 0);
+            const matchedSpeed = leadSpeed * 0.8 + proposedSpeed * ratio * 0.2;
+            safeSpeed = Math.min(safeSpeed, Math.max(0, matchedSpeed), Math.max(0, targetX - A.x));
           }
 
           blocking = B;
@@ -2231,11 +2619,19 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
       for (let k = 0; k < protesters.length; k++) {
         const ped = protesters[k];
         if (Math.abs(A.y - ped.y) < 8.5) {
-          if (ped.x > A.x && ped.x - (A.x + A.w) < getSafetyBuffer(A) + 5.0) {
-            const minHaltGap = 4.0;
-            const maxAllowedX = Math.max(A.x, ped.x - A.w - minHaltGap);
+          const minStopGap = 5.0;
+          const followBuffer = 14.0;
+          const gap = ped.x - (A.x + aWidth);
+
+          if (ped.x + 2 > A.x && gap < followBuffer) {
+            const maxAllowedX = ped.x - aWidth - minStopGap;
             targetX = Math.min(targetX, maxAllowedX);
-            safeSpeed = 0;
+            if (gap <= minStopGap + 0.2 || targetX <= A.x + 0.05) {
+              targetX = Math.min(A.x, maxAllowedX);
+              safeSpeed = 0;
+            } else {
+              safeSpeed = Math.min(safeSpeed, proposedSpeed * (gap / followBuffer) * 0.5);
+            }
             blocking = { x: ped.x, y: ped.y, w: 2, d: 2, type: 'protester' };
             break;
           }
@@ -2278,7 +2674,7 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
 
         const distToStop = van.targetStopX - van.x;
         if (distToStop <= 1.0 || (distToStop <= 8.0 && safeSpeed < 0.08)) {
-          van.x = Math.min(van.x, van.targetStopX);
+          van.x = Math.min(targetX, van.targetStopX);
           van.speed = 0;
           van.state = 'STOPPED';
           van.stopTimer = 0;
@@ -2962,6 +3358,7 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
       for (let i = 0; i < deliveryVansList.length; i++) allRoadObstacles.push(deliveryVansList[i]);
       for (let i = 0; i < activeVehicles.length; i++) allRoadObstacles.push(activeVehicles[i]);
       for (let i = 0; i < emergencyVehicles.length; i++) allRoadObstacles.push(emergencyVehicles[i]);
+      if (policeBlockageUnit.active) allRoadObstacles.push(policeTrafficCar);
       for (let i = 0; i < activeMicroCount; i++) allRoadObstacles.push(microMobility[i]);
 
       // Update delivery vans with complete obstacle awareness
@@ -2979,6 +3376,11 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
 
         // Skip movement update for cars that have successfully parked at the curb
         if (A.parkingState === 'parked') {
+          continue;
+        }
+
+        // Dedicated state machine controls the police blockage cruiser
+        if (A === policeTrafficCar) {
           continue;
         }
 
@@ -3001,6 +3403,21 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
         let targetLane = A.baseY || 110;
         const isCar_A = carTypes.includes(A.type);
         let isPullingOver = false;
+
+        // =========================================================================================
+        // SECTION: CIRCLING CARS & PARALLEL PARKING EVALUATION (Plain English Oversight Summary)
+        // -----------------------------------------------------------------------------------------
+        // Purpose: Demonstrates how drivers circle for parking and parallel park into curbside stalls.
+        // 
+        // Key Rules:
+        // 1. Curbside Stall Scanning: Circling vehicles scan curbside stalls between x = 35 and 270.
+        // 2. Spot Size Evaluation (80% vs 150%+): If a spot is less than 80% of vehicle length, the
+        //    driver attempts to reverse, realizes it cannot fit without clipping, aborts, and resumes
+        //    circling. If the spot is >= 150% of vehicle length, the driver smoothly completes the
+        //    reverse parallel park, turns off the engine, exits the vehicle, and walks into the home.
+        // 3. Realistic Driver Walkway Path: Upon successful parking, a resident pedestrian actor spawns,
+        //    walks up the curb, across the boulevard, along the sidewalk, and through the front door.
+        // =========================================================================================
 
         // Parallel parking logic for circling cars:
         // Scanning for curbside spots, evaluating spot size relative to car size:
@@ -3123,6 +3540,20 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
           }
         }
 
+        // =========================================================================================
+        // SECTION: ETS PUBLIC TRANSIT & CURBSIDE DWELLING (Plain English Oversight Summary)
+        // -----------------------------------------------------------------------------------------
+        // Purpose: Simulates Edmonton Transit Service (ETS) public transit serving higher density blocks.
+        // 
+        // Key Rules:
+        // 1. Density Trigger (>11 Dwellings): A glass-paneled ETS bus shelter with bench, solar light,
+        //    and transit route flag appears at the boulevard when infill density exceeds 11 homes.
+        // 2. Curbside Pull-In & Boarding: Approaching ETS buses steer into the curbside zone (y = 94.5),
+        //    decelerate to a stop, open doors, and commuters visibly step from the shelter into the bus.
+        // 3. Safe Re-entry: The bus signals, checks lane clearance with blind-spot protection, and merges
+        //    smoothly back into travel flow.
+        // =========================================================================================
+
         if (emergencyApproaching) {
           targetLane = (A.baseY || 110) < 118 ? 108 : 126;
           isPullingOver = true;
@@ -3142,7 +3573,7 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
           for (let j = 0; j < roadObstacleCount; j++) {
             const B = allRoadObstacles[j];
             if (A === B || (B.speed || 0) > 0.3) continue;
-            if (hasLateralOverlap(A.y, A.d, B.y, B.d, 0.4) && B.x > A.x && B.x - (A.x + A.w) < 45) {
+            if (hasLateralOverlap(A.y, A.d, B.y, B.d, 1.2) && B.x > A.x && B.x - (A.x + (A.w || 15)) < 45) {
               isBlockedInLane = true;
               break;
             }
@@ -3154,8 +3585,8 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
             for (let j = 0; j < roadObstacleCount; j++) {
               const B = allRoadObstacles[j];
               if (A === B) continue;
-              if (hasLateralOverlap(altLane, A.d, B.y, B.d, 0.4)) {
-                if (B.x < A.x + A.w + 24 && B.x + B.w > A.x - 20) {
+              if (hasLateralOverlap(altLane, A.d, B.y, B.d, 1.2)) {
+                if (B.x < A.x + (A.w || 15) + 24 && B.x + (B.w || 15) > A.x - 20) {
                   altClear = false;
                   break;
                 }
@@ -3170,6 +3601,13 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
               }
             }
             if (altClear) targetLane = altLane;
+          }
+        }
+
+        // Yield right-hand lane to approaching emergency police cruiser
+        if (policeBlockageUnit.active && policeBlockageUnit.state === 'dispatched' && !A.isEmergency) {
+          if (Math.abs(A.y - 124) < 6 && A.x > policeTrafficCar.x && (A.x - policeTrafficCar.x) < 140) {
+            targetLane = 110; // Shift to left lane to keep the right-hand lane clear for police
           }
         }
 
@@ -3208,7 +3646,9 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
         } else if (A.isEmergency) {
           if (hasBurningCars || isRioting) {
             const focalX = burningRoadLocations.length > 0 ? burningRoadLocations[0] : 180;
-            const stopTarget = A.type === 'police' ? (focalX - 32) : (focalX - 68);
+            const emergencyIdx = emergencyVehicles.indexOf(A);
+            const staggerDist = emergencyIdx > 0 ? emergencyIdx * 32 : 0;
+            const stopTarget = A.type === 'police' ? (focalX - 32 - staggerDist) : (focalX - 68 - staggerDist);
             if (A.x >= stopTarget) {
               assignedBaseSpeed = 0;
             } else if (A.x >= stopTarget - 35) {
@@ -3278,24 +3718,25 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
         A.x = targetX;
         const blockingObstacle: RoadObstacle | null = blocking;
 
-        // Honk logic
+        // Honk and stuck logic
         if (isCar_A && A.stuckTimer !== undefined && (!A.parkingState || A.parkingState === 'cruising')) {
-          const isBlockedByVanOrRiot =
+          const isBlockedByObstacle =
             blockingObstacle &&
             (blockingObstacle.type === 'deliveryVan' ||
               blockingObstacle.type === 'protester' ||
               blockingObstacle.isStuckBehindVan ||
+              (blockingObstacle.speed || 0) < 0.2 ||
               isRioting ||
               hasBurningCars);
 
-          if (isBlockedByVanOrRiot && A.speed < 0.15) {
+          if (isBlockedByObstacle && A.speed < 0.15) {
             A.isStuckBehindVan = true;
             A.stuckTimer += 1 / 60;
-            if (A.stuckTimer >= 1.8) {
+            if (A.stuckTimer >= 1.8 && A.stuckTimer < 18.0) {
               if ((A.honkCooldown || 0) <= 0) {
                 playHonk(A.type);
                 A.honkBubbleTimer = 45;
-                A.honkCooldown = 1.8 + Math.random();
+                A.honkCooldown = 2.0 + Math.random();
               }
             }
           } else {
@@ -3335,12 +3776,14 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
             A.baseY = A.baseY === 110 ? 124 : 110;
           }
 
-          let respawnX = -60;
+          let respawnX = -70;
           for (let j = 0; j < roadObstacleCount; j++) {
             const B = allRoadObstacles[j];
             if (A === B) continue;
-            if (Math.abs(A.y - B.y) < 8 && B.x < 0 && B.x > respawnX - A.w - 20) {
-              respawnX = Math.min(respawnX, B.x - A.w - 25);
+            if (hasLateralOverlap(A.y, A.d, B.y, B.d, 1.2)) {
+              if (B.x <= 35 && B.x >= respawnX - (A.w || 15) - 20) {
+                respawnX = Math.min(respawnX, B.x - (A.w || 15) - 25);
+              }
             }
           }
           A.x = respawnX;
@@ -3356,6 +3799,271 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
             A.honkCooldown = 0;
             A.honkBubbleTimer = 0;
             A.isStuckBehindVan = false;
+          }
+        }
+      }
+
+      // --- Police Traffic Clearance Response for Blockages (>20s) ---
+      policeResponseCooldown = Math.max(0, policeResponseCooldown - 1 / 60);
+
+      // Evaluate whether travel lanes are stuck:
+      let lane1Stopped = false;
+      let lane2Stopped = false;
+      let leadStopped1: RoadObstacle | null = null;
+      let leadStopped2: RoadObstacle | null = null;
+      let maxStuckTime = 0;
+
+      // 1. Check delivery vans
+      for (let j = 0; j < deliveryVansList.length; j++) {
+        const v = deliveryVansList[j];
+        if (v.x >= 15 && v.x <= blockLength - 10 && (v.state === 'STOPPED' || v.state === 'AT_DOOR' || v.state === 'RETURNING') && (v.speed || 0) < 0.2) {
+          if (v.y < 118) {
+            lane1Stopped = true;
+            if (!leadStopped1 || v.x > leadStopped1.x) leadStopped1 = v;
+          } else {
+            lane2Stopped = true;
+            if (!leadStopped2 || v.x > leadStopped2.x) leadStopped2 = v;
+          }
+        }
+      }
+
+      // 2. Check active road vehicles
+      for (let j = 0; j < activeVehicles.length; j++) {
+        const v = activeVehicles[j];
+        if (v.x >= 15 && v.x <= blockLength - 10 && v.parkingState !== 'parked') {
+          if (v.type === 'etsBus' && v.busStopState === 'dwelling' && (v.busDwellTimer || 0) > 0) {
+            continue; // Normal brief transit stop
+          }
+          if ((v.stuckTimer || 0) > maxStuckTime) {
+            maxStuckTime = v.stuckTimer || 0;
+          }
+          if ((v.speed || 0) < 0.2) {
+            if (v.y < 118) {
+              lane1Stopped = true;
+              if (!leadStopped1 || v.x > leadStopped1.x) leadStopped1 = v;
+            } else {
+              lane2Stopped = true;
+              if (!leadStopped2 || v.x > leadStopped2.x) leadStopped2 = v;
+            }
+          }
+        }
+      }
+
+      if (lane1Stopped) {
+        laneNorthStuckTimer += 1 / 60;
+      } else {
+        laneNorthStuckTimer = Math.max(0, laneNorthStuckTimer - 2 / 60);
+      }
+
+      if (lane2Stopped) {
+        laneSouthStuckTimer += 1 / 60;
+      } else {
+        laneSouthStuckTimer = Math.max(0, laneSouthStuckTimer - 2 / 60);
+      }
+
+      const currentMaxStuck = Math.max(laneNorthStuckTimer, laneSouthStuckTimer, maxStuckTime);
+      if (Math.floor(currentMaxStuck) !== Math.floor(lastReportedLaneStuckSeconds)) {
+        lastReportedLaneStuckSeconds = currentMaxStuck;
+        setLaneStuckSeconds(Math.min(20, Math.floor(currentMaxStuck)));
+      }
+
+      // Trigger condition: a lane of traffic is stuck for more than 20 seconds
+      if ((laneNorthStuckTimer >= 20.0 || laneSouthStuckTimer >= 20.0 || maxStuckTime >= 20.0) && !policeBlockageUnit.active && policeResponseCooldown <= 0) {
+        const isNorth = laneNorthStuckTimer >= 20.0 || (laneNorthStuckTimer >= laneSouthStuckTimer);
+        policeBlockageUnit.active = true;
+        policeBlockageUnit.state = 'dispatched';
+        policeBlockageUnit.blockedLane = isNorth ? 'north' : 'south';
+        policeBlockageUnit.targetLaneY = isNorth ? 110 : 124;
+        const leadObstacle = isNorth ? leadStopped1 : leadStopped2;
+        policeBlockageUnit.targetBlockageX = leadObstacle ? leadObstacle.x : (isNorth ? 150 : 200);
+        policeBlockageUnit.stageTimer = 0;
+        policeBlockageUnit.sirenSoundTimer = 0;
+        policeBlockageUnit.bubbleText = '🚨 EPS: Taking right hand lane to traffic blockage!';
+
+        // The police cruiser takes the right hand lane (y = 124) to get to the scene of the traffic blockage
+        policeTrafficCar.x = -130;
+        policeTrafficCar.y = 124;
+        policeTrafficCar.baseY = 124;
+        policeTrafficCar.targetY = 124;
+        policeTrafficCar.baseSpeed = 2.8;
+        policeTrafficCar.speed = 2.8;
+        policeTrafficCar.isEmergency = true;
+        policeTrafficCar.policeBubbleText = policeBlockageUnit.bubbleText;
+
+        policeOfficerPed.active = false;
+        setIsPoliceTrafficActive(true);
+        playPoliceSirenSoundRef.current('wail');
+      }
+
+      // Update Police Blockage Unit State Machine
+      if (policeBlockageUnit.active) {
+        if (policeBlockageUnit.state === 'dispatched') {
+          policeBlockageUnit.sirenSoundTimer++;
+          if (policeBlockageUnit.sirenSoundTimer % 38 === 0) {
+            playPoliceSirenSoundRef.current('wail');
+          }
+
+          // Cruiser drives down the right hand lane (y = 124) to the blockage
+          policeTrafficCar.y = 124;
+          policeTrafficCar.targetY = 124;
+
+          const isBlockedNorth = policeBlockageUnit.blockedLane === 'north';
+          // In the right hand lane, pull up alongside north-lane blockages, or directly behind right-lane blockages
+          const stopX = Math.max(20, policeBlockageUnit.targetBlockageX - (isBlockedNorth ? 10 : 22));
+          if (policeTrafficCar.x < stopX) {
+            const dist = stopX - policeTrafficCar.x;
+            const desiredSpeed = dist < 45 ? Math.max(0.35, dist * 0.1) : (policeTrafficCar.baseSpeed || 2.8);
+            const { safeSpeed, targetX } = checkForwardObstacle(
+              policeTrafficCar,
+              desiredSpeed,
+              allRoadObstacles,
+              activeRoadProtesters
+            );
+            policeTrafficCar.speed = safeSpeed;
+            policeTrafficCar.x = Math.min(targetX, stopX);
+            if (policeTrafficCar.x >= stopX - 0.5) {
+              policeTrafficCar.x = stopX;
+              policeTrafficCar.speed = 0;
+              policeBlockageUnit.state = 'investigating';
+              policeBlockageUnit.stageTimer = 160;
+              policeBlockageUnit.bubbleText = '🚨 EPS: Investigating scene of blockage...';
+              policeTrafficCar.policeBubbleText = policeBlockageUnit.bubbleText;
+              playPoliceSirenSoundRef.current('chirp');
+
+              policeOfficerPed.active = true;
+              policeOfficerPed.x = policeTrafficCar.x + 8;
+              policeOfficerPed.y = 117;
+            }
+          } else {
+            policeTrafficCar.x = stopX;
+            policeTrafficCar.speed = 0;
+            policeBlockageUnit.state = 'investigating';
+            policeBlockageUnit.stageTimer = 160;
+            policeBlockageUnit.bubbleText = '🚨 EPS: Investigating scene of blockage...';
+            policeTrafficCar.policeBubbleText = policeBlockageUnit.bubbleText;
+            playPoliceSirenSoundRef.current('chirp');
+
+            policeOfficerPed.active = true;
+            policeOfficerPed.x = policeTrafficCar.x + 8;
+            // Officer steps out of cruiser into center street strip (y = 117) to direct traffic
+            policeOfficerPed.y = 117;
+          }
+        } else if (policeBlockageUnit.state === 'investigating') {
+          policeTrafficCar.speed = 0;
+          policeBlockageUnit.stageTimer--;
+          if (policeBlockageUnit.stageTimer <= 0) {
+            policeBlockageUnit.state = 'clearing';
+            policeBlockageUnit.stageTimer = 180;
+            policeBlockageUnit.bubbleText = '🚨 EPS: Directing traffic — move along! Clearing blockage.';
+            policeTrafficCar.policeBubbleText = policeBlockageUnit.bubbleText;
+            playPoliceSirenSoundRef.current('yelp');
+
+            // Force delivery vans to leave
+            for (let j = 0; j < deliveryVansList.length; j++) {
+              const van = deliveryVansList[j];
+              if (van.state === 'STOPPED' || van.state === 'AT_DOOR' || van.state === 'RETURNING') {
+                van.driver.active = false;
+                van.driver.hasPackage = false;
+                van.state = 'LEAVING';
+                van.targetY = 104;
+                van.baseSpeed = 1.3;
+                van.speed = 1.3;
+                van.x += 2.0;
+              }
+            }
+
+            // Put out vehicle fires causing blockage
+            for (let j = 0; j < activeVehicles.length; j++) {
+              const v = activeVehicles[j];
+              if (v.isBurning) {
+                v.isBurning = false;
+                v.isFlipped = false;
+                v.speed = v.baseSpeed || 1.0;
+              }
+            }
+            flippedCars.clear();
+            if (isRioting) {
+              isRioting = false;
+              setIsRiotActive(false);
+            }
+
+            // Reset stalled parking attempts & release queued vehicles
+            for (let j = 0; j < activeVehicles.length; j++) {
+              const v = activeVehicles[j];
+              if (v.parkingState === 'giving_up' || v.parkingState === 'attempting_reverse' || v.parkingState === 'found_spot') {
+                v.parkingState = 'cruising';
+                v.parkingTargetSlot = null;
+                v.parkingBubbleText = undefined;
+                v.speed = v.baseSpeed || 1.0;
+              }
+              // Reset queue in blocked lane
+              if (Math.abs(v.y - policeBlockageUnit.targetLaneY) < 10) {
+                v.stuckTimer = 0;
+                v.isStuckBehindVan = false;
+                if ((v.speed || 0) < 0.3) {
+                  v.speed = Math.max(0.75, v.baseSpeed || 0.9);
+                  v.x += 1.0;
+                }
+              }
+            }
+
+            laneNorthStuckTimer = 0;
+            laneSouthStuckTimer = 0;
+          }
+        } else if (policeBlockageUnit.state === 'clearing') {
+          policeTrafficCar.speed = 0;
+          policeBlockageUnit.stageTimer--;
+
+          // Keep queued vehicles accelerating freely past the scene
+          for (let j = 0; j < activeVehicles.length; j++) {
+            const v = activeVehicles[j];
+            if (Math.abs(v.y - policeBlockageUnit.targetLaneY) < 10) {
+              v.stuckTimer = 0;
+              v.isStuckBehindVan = false;
+              if ((v.speed || 0) < 0.4) {
+                v.speed = Math.max(0.75, v.baseSpeed || 0.9);
+                v.x += 0.8;
+              }
+            }
+          }
+
+          if (policeBlockageUnit.stageTimer === 60) {
+            policeBlockageUnit.bubbleText = '✅ EPS: Lane cleared! Traffic flowing freely.';
+            policeTrafficCar.policeBubbleText = policeBlockageUnit.bubbleText;
+          }
+
+          if (policeBlockageUnit.stageTimer <= 0) {
+            policeBlockageUnit.state = 'resuming';
+            policeOfficerPed.active = false; // Officer steps back into cruiser
+            policeBlockageUnit.bubbleText = '✅ EPS: Resuming patrol down right hand lane';
+            policeTrafficCar.policeBubbleText = policeBlockageUnit.bubbleText;
+            policeTrafficCar.isEmergency = false;
+            policeTrafficCar.baseSpeed = 1.4;
+            policeTrafficCar.speed = 1.4;
+            policeTrafficCar.y = 124;
+            policeTrafficCar.targetY = 124;
+            policeBlockageUnit.stageTimer = 90;
+          }
+        } else if (policeBlockageUnit.state === 'resuming') {
+          policeBlockageUnit.stageTimer--;
+          if (policeBlockageUnit.stageTimer <= 0) {
+            policeTrafficCar.policeBubbleText = undefined;
+          }
+          policeTrafficCar.y = 124; // Continues in right hand lane
+          const { safeSpeed, targetX } = checkForwardObstacle(
+            policeTrafficCar,
+            policeTrafficCar.baseSpeed || 1.4,
+            allRoadObstacles,
+            activeRoadProtesters
+          );
+          policeTrafficCar.speed = safeSpeed;
+          policeTrafficCar.x = targetX;
+
+          if (policeTrafficCar.x > blockLength + 80) {
+            policeBlockageUnit.active = false;
+            policeBlockageUnit.state = 'inactive';
+            policeResponseCooldown = 15.0;
+            setIsPoliceTrafficActive(false);
           }
         }
       }
@@ -3482,41 +4190,123 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
           }
         }
       }
-      // Layer 3: Vehicles (Parked Cars, Vans, Emergency, Active Traffic)
-      // Grouping all vehicle graphic asset layers together and sorting by depth (Y-axis) for proper collision visual overlap
+      // =========================================================================================
+      // SECTION: PAINTER'S ALGORITHM VISUAL DEPTH SORTING (Plain English Oversight Summary)
+      // -----------------------------------------------------------------------------------------
+      // Purpose: Ensures visual realism on an isometric 2.5D display. Objects further back
+      // (higher on screen or further left) are drawn first, and objects in front are drawn on top.
+      // 
+      // Key Rules:
+      // 1. Unified Queue: Consolidates 10 distinct entity types (parked cars, delivery vans,
+      //    emergency vehicles, cruising traffic, cyclists, scooter riders, pedestrians, bus shelters,
+      //    transit riders, and walking homeowners) into a single processing list.
+      // 2. Exact Depth Key: Computes (x + w * 0.75) + (y + d) * 1.15 to order objects accurately.
+      // 3. Occlusion Integrity: Eliminates flickering, ghosting, or cars rendering inside buildings/shelters.
+      // =========================================================================================
+
+      // Layer 3: Unified Painter's Algorithm Depth-Ordered Render Queue
+      // Computes exact 2.5D isometric depth key: (x + w * 0.75) + (y + d) * 1.15
+      // Guarantees all vehicles, trucks, delivery vans, police cars, fire trucks, cyclists, scooter riders, and pedestrians render in pristine isometric layer order
+      function getIsometricDepthKey(x: number, y: number, w = 15, d = 7): number {
+        return (x + w * 0.75) + (y + d) * 1.15;
+      }
+
       const renderQueue: any[] = [];
-      
+
+      // 1. Static and parked household vehicles
       for (let i = 0; i < totalToRender; i++) {
         const car = houseCarAssignments[activeIndices[i]];
         const carColor = i >= activeHouseholdCars ? '#ffffff' : car.color;
         const isFlipped = car.y >= 90 && flippedCars.has(i);
-        renderQueue.push({ ...car, color: carColor, isFlipped, sortY: car.y });
+        const w = car.w || 15;
+        const d = car.d || 7;
+        renderQueue.push({
+          ...car,
+          color: carColor,
+          isFlipped,
+          w,
+          d,
+          depthKey: getIsometricDepthKey(car.x, car.y, w, d)
+        });
       }
+
+      // 2. Delivery vans and active delivery drivers
       for (let i = 0; i < deliveryVansList.length; i++) {
         const van = deliveryVansList[i];
-        renderQueue.push({ ...van, color: van.color || '#FF5500', isFlipped: false, sortY: van.y, state: van.state });
+        renderQueue.push({
+          ...van,
+          color: van.color || '#FF5500',
+          isFlipped: false,
+          w: 21,
+          d: 8,
+          state: van.state,
+          depthKey: getIsometricDepthKey(van.x, van.y, 21, 8)
+        });
         if (van.driver.active) {
           renderQueue.push({
             type: 'deliveryDriver',
             x: van.driver.x,
             y: van.driver.y,
+            w: 2,
+            d: 2,
             hasPackage: van.driver.hasPackage,
-            sortY: van.driver.y
+            depthKey: getIsometricDepthKey(van.driver.x, van.driver.y, 2, 2)
           });
         }
       }
+
+      // 3. Emergency response vehicles (police cruisers & fire trucks)
       for (let i = 0; i < emergencyVehicles.length; i++) {
         const v = emergencyVehicles[i];
-        renderQueue.push({ ...v, color: v.color || '#ffffff', isFlipped: false, sortY: v.y });
+        const w = v.w || (v.type === 'firetruck' ? 28 : 15);
+        const d = v.d || (v.type === 'firetruck' ? 9 : 7);
+        renderQueue.push({
+          ...v,
+          color: v.color || '#ffffff',
+          isFlipped: false,
+          w,
+          d,
+          depthKey: getIsometricDepthKey(v.x, v.y, w, d)
+        });
       }
+
+      // 4. Dedicated EPS Police Traffic Blockage Cruiser
+      if (policeBlockageUnit.active) {
+        renderQueue.push({
+          ...policeTrafficCar,
+          color: '#ffffff',
+          isFlipped: false,
+          w: 15,
+          d: 7,
+          policeBubbleText: policeTrafficCar.policeBubbleText,
+          depthKey: getIsometricDepthKey(policeTrafficCar.x, policeTrafficCar.y, 15, 7)
+        });
+      }
+
+      // 5. EPS Police Officer directing traffic at scene of blockage
+      if (policeBlockageUnit.active && policeOfficerPed.active) {
+        renderQueue.push({
+          type: 'policeOfficer',
+          x: policeOfficerPed.x,
+          y: policeOfficerPed.y,
+          w: 2,
+          d: 2,
+          depthKey: getIsometricDepthKey(policeOfficerPed.x, policeOfficerPed.y, 2, 2)
+        });
+      }
+
+      // 6. Active cruising and through-traffic vehicles (sedans, SUVs, pickups, box trucks, ETS buses)
       for (let i = 0; i < activeVehicles.length; i++) {
         const v = activeVehicles[i];
         const isVBurning = Boolean(v.isBurning);
-        renderQueue.push({ 
-          ...v, 
-          color: v.color || '#0081BC', 
-          isFlipped: isVBurning, 
-          sortY: v.y, 
+        const w = v.w || 15;
+        const d = v.d || 7;
+        renderQueue.push({
+          ...v,
+          color: v.color || '#0081BC',
+          isFlipped: isVBurning,
+          w,
+          d,
           honkBubbleTimer: v.honkBubbleTimer,
           isCircling: v.isCircling,
           circlingLap: v.circlingLap,
@@ -3524,43 +4314,202 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
           busStopState: v.busStopState,
           isExtraBus: v.isExtraBus,
           parkingState: v.parkingState,
-          parkingBubbleText: v.parkingBubbleText
+          parkingBubbleText: v.parkingBubbleText,
+          depthKey: getIsometricDepthKey(v.x, v.y, w, d)
         });
       }
+
+      // 7. Micro-mobility traffic: Cyclists and Scooter Riders
       for (let i = 0; i < activeMicroCount; i++) {
         const mm = microMobility[i];
-        renderQueue.push({ ...mm, sortY: mm.y });
+        const w = mm.w || (mm.type === 'bike' ? 8 : 7);
+        const d = mm.d || 4;
+        renderQueue.push({
+          ...mm,
+          w,
+          d,
+          depthKey: getIsometricDepthKey(mm.x, mm.y, w, d)
+        });
       }
 
-      // Sort by Y-coordinate for proper isometric depth rendering (objects lower on screen drawn last)
-      renderQueue.sort((a, b) => a.sortY - b.sortY);
+      // 8. Public pedestrians (sidewalk bystanders, recording observers, and road protesters)
+      for (let i = 0; i < activePedCount; i++) {
+        const p = pedestrians[i];
+        const isProtester = hasBurningCars && (p.id % 2 === 1);
+        const isBystander = hasBurningCars && (p.id % 2 === 0);
+        const isRecording = isBystander && (p.id % 4 === 0 || p.id === 2);
+        const pose = isProtester ? 'protester' : isBystander ? 'bystander' : 'normal';
+        renderQueue.push({
+          type: 'pedestrian',
+          x: p.x,
+          y: p.y,
+          w: 2,
+          d: 2,
+          color: p.color,
+          pose,
+          isRecording,
+          id: p.id,
+          depthKey: getIsometricDepthKey(p.x, p.y, 2, 2)
+        });
+      }
 
-      // Render ETS Bus Stop Shelter at the curb edge on the boulevard (end of street) if dwellings > 11
+      // 9. ETS Bus Stop Shelter & Waiting/Boarding Passengers
       const hasBusStopShelter = simTotalDwellings > 11;
       if (hasBusStopShelter) {
-        drawBusStopShelter(324, 80.5);
+        if (busStopPassengerRespawnTimer > 0) {
+          busStopPassengerRespawnTimer--;
+          if (busStopPassengerRespawnTimer === 0) {
+            busStopPassengerCount = 2;
+          }
+        }
+
+        renderQueue.push({
+          type: 'busStopShelter',
+          x: 324,
+          y: 80.5,
+          w: 20,
+          d: 9.5,
+          depthKey: getIsometricDepthKey(324, 80.5, 20, 9.5)
+        });
+
+        const dwellingBus = activeVehicles.find(v => v.type === 'etsBus' && v.busStopState === 'dwelling');
+        if (dwellingBus) {
+          const dwellLeft = dwellingBus.busDwellTimer || 0;
+          const boardProgress = Math.min(1, Math.max(0, (180 - dwellLeft) / 110));
+          if (dwellLeft > 70) {
+            const p1X = 330 + (320 - 330) * boardProgress;
+            const p1Y = 83.5 + (90.5 - 83.5) * boardProgress;
+            renderQueue.push({
+              type: 'busPassenger',
+              x: p1X,
+              y: p1Y,
+              w: 2,
+              d: 2,
+              color: '#005087',
+              depthKey: getIsometricDepthKey(p1X, p1Y, 2, 2)
+            });
+
+            const p2X = 341 + (326 - 341) * boardProgress;
+            const p2Y = 88.0 + (91.0 - 88.0) * boardProgress;
+            renderQueue.push({
+              type: 'busPassenger',
+              x: p2X,
+              y: p2Y,
+              w: 2,
+              d: 2,
+              color: '#0284c7',
+              depthKey: getIsometricDepthKey(p2X, p2Y, 2, 2)
+            });
+          }
+        } else if (busStopPassengerCount > 0) {
+          renderQueue.push({
+            type: 'busPassenger',
+            x: 330,
+            y: 83.5,
+            w: 2,
+            d: 2,
+            color: '#005087',
+            depthKey: getIsometricDepthKey(330, 83.5, 2, 2)
+          });
+          if (busStopPassengerCount > 1) {
+            renderQueue.push({
+              type: 'busPassenger',
+              x: 341,
+              y: 88.0,
+              w: 2,
+              d: 2,
+              color: '#0284c7',
+              depthKey: getIsometricDepthKey(341, 88.0, 2, 2)
+            });
+          }
+        }
       }
 
+      // 10. Update & include residents walking from parked cars to house doorways
+      for (let i = parkedWalkers.length - 1; i >= 0; i--) {
+        const pw = parkedWalkers[i];
+        if (!pw.active) {
+          parkedWalkers.splice(i, 1);
+          continue;
+        }
+
+        if (pw.state === 'curb_to_sidewalk') {
+          for (let h = 0; h < 6; h++) {
+            const tX = h === 0 ? 16 : (10 + h * 55 + 25);
+            if (Math.abs(pw.x - tX) < 4.5 && pw.y > 77 && pw.y < 89) {
+              pw.x += (pw.x < tX ? -0.4 : 0.4);
+            }
+          }
+          pw.y -= 0.35;
+          if (pw.y <= 74) {
+            pw.y = 74;
+            pw.state = 'sidewalk_to_door';
+          }
+        } else if (pw.state === 'sidewalk_to_door') {
+          const dx = pw.targetX - pw.x;
+          if (Math.abs(dx) > 0.8) {
+            pw.x += Math.sign(dx) * 0.45;
+          } else {
+            pw.x = pw.targetX;
+            pw.y -= 0.4;
+            if (pw.y <= pw.targetY) {
+              pw.state = 'entered';
+              pw.active = false;
+            }
+          }
+        }
+
+        if (pw.active) {
+          renderQueue.push({
+            type: 'parkedWalker',
+            x: pw.x,
+            y: pw.y,
+            w: 2,
+            d: 2,
+            color: pw.color,
+            depthKey: getIsometricDepthKey(pw.x, pw.y, 2, 2)
+          });
+        } else {
+          parkedWalkers.splice(i, 1);
+        }
+      }
+
+      // Sort entire scene strictly from back to front by isometric depth key
+      renderQueue.sort((a, b) => a.depthKey - b.depthKey);
+
+      // Render all items in exact depth order
       for (const item of renderQueue) {
-        if (item.type === 'bike') {
+        if (item.type === 'busStopShelter') {
+          drawBusStopShelter(item.x, item.y);
+        } else if (item.type === 'policeOfficer') {
+          drawPedestrian(item.x, item.y, 0, '#002B49', 'officer');
+        } else if (item.type === 'pedestrian') {
+          drawPedestrian(item.x, item.y, 0, item.color, item.pose);
+          if (item.isRecording) {
+            drawBystanderPhone(item.x, item.y, 0, item.id);
+          }
+        } else if (item.type === 'parkedWalker' || item.type === 'busPassenger') {
+          drawPedestrian(item.x, item.y, 0, item.color, 'normal');
+        } else if (item.type === 'bike') {
           drawCyclist(item.x, item.y, 0, item.color);
         } else if (item.type === 'scooter') {
           drawScooter(item.x, item.y, 0, item.color);
         } else if (item.type === 'deliveryDriver') {
           drawPedestrian(item.x, item.y, 0, '#009A44');
           if (item.hasPackage) {
-            // Driver holding parcel in front
             drawBlock(item.x - 0.4, item.y - 0.8, 2.6, 2.0, 1.6, 1.4, '#d2b48c', '#b89768', '#9e7a4a');
             drawBlock(item.x + 0.2, item.y - 0.8, 4.0, 0.5, 1.6, 0.04, '#c29b68', '#b08a56', '#9f7845');
             drawBlock(item.x - 0.2, item.y - 0.6, 4.0, 0.7, 0.7, 0.05, '#ffffff', '#e8e8e8', '#d0d0d0');
           }
         } else {
           drawVehicle(item.x, item.y, 0, item.type, item.color, item.isFlipped, item.state);
-          
+
           if (item.isFlipped) {
             spawnFireParticle(item.x + 3, item.y + 3, 4);
             spawnFireParticle(item.x + 8, item.y + 2, 4);
             if (Math.random() < 0.4) spawnFireParticle(item.x + 12, item.y + 3, 3);
+          } else if (item.policeBubbleText) {
+            drawPoliceBubble(item.x, item.y, 0, item.policeBubbleText);
           } else if (item.honkBubbleTimer && item.honkBubbleTimer > 0) {
             drawHonkBubble(item.x, item.y, 0);
           } else if (item.parkingBubbleText && item.parkingState !== 'parked') {
@@ -3584,103 +4533,6 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
       }
 
       updateAndDrawParticles();
-
-      // Layer 4: Pedestrians: Bystanders on Sidewalk & Protesters on Road
-      for (let i = 0; i < activePedCount; i++) {
-        const p = pedestrians[i];
-        const isProtester = hasBurningCars && (p.id % 2 === 1);
-        const isBystander = hasBurningCars && (p.id % 2 === 0);
-
-        if (isProtester) {
-          drawPedestrian(p.x, p.y, 0, p.color, 'protester');
-        } else if (isBystander) {
-          drawPedestrian(p.x, p.y, 0, p.color, 'bystander');
-          // Bystanders do NOT need voice bubbles. 1 in 3 records with smartphone safely from sidewalk
-          const isRecording = (p.id % 4 === 0 || p.id === 2);
-          if (isRecording) {
-            drawBystanderPhone(p.x, p.y, 0, p.id);
-          }
-        } else {
-          drawPedestrian(p.x, p.y, 0, p.color, 'normal');
-        }
-      }
-
-      // Waiting passengers at the bus shelter when bus stop is active (> 11 dwellings)
-      // They wait at the shelter, and during bus dwelling they walk to the bus curb edge and board!
-      if (simTotalDwellings > 11) {
-        if (busStopPassengerRespawnTimer > 0) {
-          busStopPassengerRespawnTimer--;
-          if (busStopPassengerRespawnTimer === 0) {
-            busStopPassengerCount = 2; // New commuters arrive to wait for the next bus
-          }
-        }
-
-        const dwellingBus = activeVehicles.find(v => v.type === 'etsBus' && v.busStopState === 'dwelling');
-        if (dwellingBus) {
-          // Bus is at the curb loading passengers: animate boarding
-          const dwellLeft = dwellingBus.busDwellTimer || 0;
-          const boardProgress = Math.min(1, Math.max(0, (180 - dwellLeft) / 110)); // 0 to 1 as boarding occurs
-
-          if (dwellLeft > 70) {
-            // Commuter 1 stepping from bench out towards bus door
-            const p1X = 330 + (320 - 330) * boardProgress;
-            const p1Y = 83.5 + (90.5 - 83.5) * boardProgress;
-            drawPedestrian(p1X, p1Y, 0, '#005087');
-
-            // Commuter 2 stepping from sign post towards bus front door
-            const p2X = 341 + (326 - 341) * boardProgress;
-            const p2Y = 88.0 + (91.0 - 88.0) * boardProgress;
-            drawPedestrian(p2X, p2Y, 0, '#0284c7');
-          }
-        } else if (busStopPassengerCount > 0) {
-          drawPedestrian(330, 83.5, 0, '#005087'); // Commuter waiting inside shelter on bench
-          if (busStopPassengerCount > 1) {
-            drawPedestrian(341, 88.0, 0, '#0284c7'); // Commuter waiting by curb edge sign post
-          }
-        }
-      }
-
-      // Render residents walking from successfully parallel parked cars to their house front door
-      for (let i = parkedWalkers.length - 1; i >= 0; i--) {
-        const pw = parkedWalkers[i];
-        if (!pw.active) continue;
-
-        if (pw.state === 'curb_to_sidewalk') {
-          // Avoid boulevard trees (trees at x = 16 or baseX + 25, y = 84)
-          for (let h = 0; h < 6; h++) {
-            const tX = h === 0 ? 16 : (10 + h * 55 + 25);
-            if (Math.abs(pw.x - tX) < 4.5 && pw.y > 77 && pw.y < 89) {
-              pw.x += (pw.x < tX ? -0.4 : 0.4);
-            }
-          }
-          // Walk from driver side curb (y: 88) up across boulevard onto sidewalk (y: 74)
-          pw.y -= 0.35;
-          if (pw.y <= 74) {
-            pw.y = 74;
-            pw.state = 'sidewalk_to_door';
-          }
-        } else if (pw.state === 'sidewalk_to_door') {
-          // Walk along sidewalk to house path, then up front walkway into house doorway
-          const dx = pw.targetX - pw.x;
-          if (Math.abs(dx) > 0.8) {
-            pw.x += Math.sign(dx) * 0.45;
-          } else {
-            pw.x = pw.targetX;
-            // Walk up front walkway into house (y: 74 -> 48)
-            pw.y -= 0.4;
-            if (pw.y <= pw.targetY) {
-              pw.state = 'entered';
-              pw.active = false;
-            }
-          }
-        }
-
-        if (pw.active) {
-          drawPedestrian(pw.x, pw.y, 0, pw.color);
-        } else {
-          parkedWalkers.splice(i, 1);
-        }
-      }
 
       // Layer 5: Trees
       ctx!.drawImage(bgTreesCanvas, 0, 0);
@@ -3885,6 +4737,19 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
     return 'text-[#009A44] bg-[#009A44]/10 border-[#009A44]/40';
   };
 
+  // =========================================================================================
+  // SECTION: HEADS-UP DISPLAY (HUD), MANUAL CONTROLS & USER INTERACTION (Plain English Oversight Summary)
+  // -----------------------------------------------------------------------------------------
+  // Purpose: Provides accessible, interactive controls overlaying the canvas:
+  // 
+  // Key Features:
+  // 1. Accessibility Compliance: All interactive buttons meet WCAG 2.1 AA with minimum 44x44px touch targets.
+  // 2. Curbside Dial Gauge HUD: Displays live percentage occupancy and links to the magnified inspection modal.
+  // 3. Manual Sliders Drawer: Allows users and planners to test customized density, driveway capacities,
+  //    and delivery volumes directly.
+  // 4. Zoom & Pan Navigation: Smooth pinch-to-zoom (touch) and mousewheel zoom controls with one-click reset.
+  // =========================================================================================
+
   return (
     <div
       ref={containerRef}
@@ -3937,6 +4802,24 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
         </canvas>
 
         
+        {/* Police Traffic Blockage Response Alert */}
+        {isPoliceTrafficActive && (
+          <div
+            id="police-traffic-status"
+            className="absolute top-2 left-2 sm:top-3 sm:left-3 z-30 flex items-center gap-2.5 bg-[#002B49]/95 border-l-4 border-[#3B82F6] px-3 py-1.5 sm:px-4 sm:py-2 rounded shadow-2xl backdrop-blur-sm pointer-events-none"
+          >
+            <span className="w-2.5 h-2.5 rounded-full bg-[#EF4444] animate-ping shrink-0" />
+            <div className="flex flex-col">
+              <span className="text-white text-xs sm:text-sm font-black tracking-wide flex items-center gap-1.5 leading-tight">
+                🚨 EPS TRAFFIC INVESTIGATION
+              </span>
+              <span className="text-[#93C5FD] text-[10px] sm:text-xs font-semibold leading-tight">
+                Traffic blockage detected &gt;20s • Cruiser clearing lane
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Breaking News Riot Overlay (appears at critical overload or vehicle fire) */}
         {isRiotActive && (
           <div

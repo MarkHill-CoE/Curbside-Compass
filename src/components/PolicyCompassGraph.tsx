@@ -17,12 +17,12 @@ const PolicyCompassGraphComponent: React.FC<PolicyCompassGraphProps> = ({
   // Normalize X and Y to percentage for compass marker
   // totalX: negative = Taxpayer (Left), positive = User-Fee (Right)
   // totalY in survey scoring: negative = Regulated/Restrictive (Top / Q1 & Q2), positive = Open Access/Free (Bottom / Q3 & Q4)
-  const clampedX = Math.max(-16, Math.min(16, totalX));
-  const clampedY = Math.max(-16, Math.min(16, totalY));
+  const clampedX = Math.max(-18, Math.min(18, totalX));
+  const clampedY = Math.max(-18, Math.min(18, totalY));
   
-  const rawLeftPct = 6 + ((clampedX + 16) / 32) * 88;
+  const rawLeftPct = 6 + ((clampedX + 18) / 36) * 88;
   // Invert Y so that negative totalY (Regulated) maps to upper half (bottom% > 50) and positive totalY (Open Access) maps to lower half (bottom% < 50)
-  const rawBottomPct = 6 + ((16 - clampedY) / 32) * 88;
+  const rawBottomPct = 6 + ((18 - clampedY) / 36) * 88;
 
   // Strict quadrant alignment so the yellow target indicator always visibly matches and lands in persona.quadrant
   let markerLeftPct = rawLeftPct;
