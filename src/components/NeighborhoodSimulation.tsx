@@ -42,6 +42,50 @@ interface NeighborhoodSimulationProps {
 const BASE_LEGAL_CURBSIDE_STALLS = 10;
 const TOTAL_LEGAL_CURBSIDE_STALLS = 11;
 
+const CANDIDATE_RIOT_PATHS = [
+  '/edmonton_news_report_riot.mp3',
+  '/audio/edmonton_news_report_riot.mp3',
+  '/riot_news_report.mp3',
+  '/audio/riot_news_report.mp3'
+];
+
+const CANDIDATE_COMMENDATION_PATHS = [
+  '/good_neighbourhood.mp3',
+  '/audio/good_neighbourhood.mp3',
+  '/audio/city_planning_commendation.mp3'
+];
+
+function createSimulationAudio(
+  paths: string[],
+  options: {
+    volume?: number;
+    loop?: boolean;
+    onBlocked?: (err: unknown) => void;
+  }
+): HTMLAudioElement {
+  let pathIndex = 0;
+  const audio = new Audio(paths[0]);
+  audio.volume = options.volume ?? 0.35;
+  audio.loop = options.loop ?? false;
+  audio.preload = 'auto';
+
+  audio.addEventListener('error', () => {
+    pathIndex++;
+    if (pathIndex < paths.length) {
+      console.warn(`[SimulationAudio] Switching to fallback audio path (${pathIndex}/${paths.length - 1}):`, paths[pathIndex]);
+      audio.src = paths[pathIndex];
+      audio.load();
+      if (audio.loop || !audio.paused) {
+        audio.play().catch((err) => {
+          options.onBlocked?.(err);
+        });
+      }
+    }
+  });
+
+  return audio;
+}
+
 // =========================================================================================
 // COMPONENT OVERVIEW (Plain English Security & Oversight Summary)
 // -----------------------------------------------------------------------------------------
@@ -189,7 +233,7 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
       }
     }
     if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
-      audioCtxRef.current.resume();
+      audioCtxRef.current.resume().catch(() => {});
     }
     return audioCtxRef.current;
   }, []);
@@ -207,7 +251,10 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
 
     if (!soundEnabledRef.current) return;
     const ctx = getAudioContext();
-    if (!ctx || ctx.state !== 'running') return;
+    if (!ctx) return;
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
 
     try {
       const now = ctx.currentTime;
@@ -273,7 +320,10 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
 
     if (!soundEnabledRef.current) return;
     const ctx = getAudioContext();
-    if (!ctx || ctx.state !== 'running') return;
+    if (!ctx) return;
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
 
     try {
       const now = ctx.currentTime;
@@ -303,7 +353,10 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
 
     if (!soundEnabledRef.current) return;
     const ctx = getAudioContext();
-    if (!ctx || ctx.state !== 'running') return;
+    if (!ctx) return;
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
 
     try {
       const now = ctx.currentTime;
@@ -3075,6 +3128,28 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
                 r.y = 35;
             }
         }
+
+        if (window.__riotAudioPlayed || window.__riotAudio) {
+          window.__riotAudioPlayed = false;
+          window.__riotAudioPending = false;
+          if (window.__riotAudio) {
+            try {
+              window.__riotAudio.pause();
+              window.__riotAudio.currentTime = 0;
+            } catch {}
+          }
+        }
+        if (window.__commendationAudioPlayed || window.__commendationAudio) {
+          window.__commendationAudioPlayed = false;
+          window.__commendationAudioPending = false;
+          if (window.__commendationAudio) {
+            try {
+              window.__commendationAudio.pause();
+              window.__commendationAudio.currentTime = 0;
+            } catch {}
+          }
+        }
+        ambientAudio.setVolume(0.05);
       }
       
       // Overload Trigger: vehicles on the road catch fire under critical curbside parking overload
@@ -3132,18 +3207,16 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
           if (soundEnabledRef.current && !window.__commendationAudioPlayed) {
             window.__commendationAudioPlayed = true;
 
+            // Duck ambient traffic during commendation broadcast
+            ambientAudio.setVolume(0.02);
+
             if (!window.__commendationAudio) {
-              window.__commendationAudio = new Audio('/good_neighbourhood.mp3');
-              window.__commendationAudio.volume = 0.35;
-              window.__commendationAudio.addEventListener('error', () => {
-                if (window.__commendationAudio && window.__commendationAudio.src.includes('/good_neighbourhood.mp3')) {
-                  window.__commendationAudio.src = '/audio/good_neighbourhood.mp3';
-                  window.__commendationAudio.load();
-                  if (soundEnabledRef.current) window.__commendationAudio.play().catch(() => {});
-                } else if (window.__commendationAudio && window.__commendationAudio.src.includes('/audio/good_neighbourhood.mp3')) {
-                  window.__commendationAudio.src = '/audio/city_planning_commendation.mp3';
-                  window.__commendationAudio.load();
-                  if (soundEnabledRef.current) window.__commendationAudio.play().catch(() => {});
+              window.__commendationAudio = createSimulationAudio(CANDIDATE_COMMENDATION_PATHS, {
+                volume: 0.35,
+                loop: false,
+                onBlocked: (e) => {
+                  console.warn('Commendation audio playback blocked by browser autoplay policy. Pending user interaction.', e);
+                  window.__commendationAudioPending = true;
                 }
               });
             } else {
@@ -3166,9 +3239,13 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
           isHarmony = false;
           setIsHarmonyActive(false);
           window.__commendationAudioPlayed = false;
+          window.__commendationAudioPending = false;
+          ambientAudio.setVolume(0.05);
           if (window.__commendationAudio) {
-            window.__commendationAudio.pause();
-            window.__commendationAudio.currentTime = 0;
+            try {
+              window.__commendationAudio.pause();
+              window.__commendationAudio.currentTime = 0;
+            } catch {}
           }
         }
       }
@@ -3195,28 +3272,16 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
 
          // 1. Breaking News Report Broadcast Audio
          if (!window.__riotAudio) {
-           window.__riotAudio = new Audio(
-             typeof window !== 'undefined' && window.__agentArtifactAudioUrl
-               ? window.__agentArtifactAudioUrl
-               : '/riot_news_report.mp3'
-           );
-           window.__riotAudio.volume = 0.35;
-           window.__riotAudio.loop = true;
-           window.__riotAudio.addEventListener('error', () => {
-             if (window.__riotAudio) {
-               if (window.__riotAudio.src.includes('/riot_news_report.mp3')) {
-                 window.__riotAudio.src = '/audio/riot_news_report.mp3';
-                 window.__riotAudio.load();
-                 if (soundEnabledRef.current) window.__riotAudio.play().catch(() => {});
-               } else if (window.__riotAudio.src.includes('/audio/riot_news_report.mp3')) {
-                 window.__riotAudio.src = '/edmonton_news_report_riot.mp3';
-                 window.__riotAudio.load();
-                 if (soundEnabledRef.current) window.__riotAudio.play().catch(() => {});
-               } else if (window.__riotAudio.src.includes('/edmonton_news_report_riot.mp3')) {
-                 window.__riotAudio.src = '/audio/edmonton_news_report_riot.mp3';
-                 window.__riotAudio.load();
-                 if (soundEnabledRef.current) window.__riotAudio.play().catch(() => {});
-               }
+           const candidatePaths = typeof window !== 'undefined' && window.__agentArtifactAudioUrl
+             ? [window.__agentArtifactAudioUrl, ...CANDIDATE_RIOT_PATHS]
+             : CANDIDATE_RIOT_PATHS;
+
+           window.__riotAudio = createSimulationAudio(candidatePaths, {
+             volume: 0.35,
+             loop: true,
+             onBlocked: (e) => {
+               console.warn('Riot reporter audio playback blocked by browser autoplay policy. Pending user interaction.', e);
+               window.__riotAudioPending = true;
              }
            });
          } else {
@@ -3227,7 +3292,7 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
          const playPromise = window.__riotAudio.play();
          if (playPromise !== undefined) {
            playPromise.catch(e => {
-             console.warn('Riot audio playback blocked by browser autoplay policy. Pending user interaction.', e);
+             console.warn('Riot reporter audio playback blocked by browser autoplay policy. Pending user interaction.', e);
              window.__riotAudioPending = true;
            });
          }
@@ -3237,14 +3302,16 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
       if (!isRiotState) {
         if (window.__riotAudioPlayed) {
           window.__riotAudioPlayed = false;
+          window.__riotAudioPending = false;
           // Restore normal ambient traffic volume
           ambientAudio.setVolume(0.05);
 
           if (window.__riotAudio) {
-            window.__riotAudio.pause();
-            window.__riotAudio.currentTime = 0;
+            try {
+              window.__riotAudio.pause();
+              window.__riotAudio.currentTime = 0;
+            } catch {}
           }
-          
         }
       }
       

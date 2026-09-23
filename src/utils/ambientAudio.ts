@@ -2,7 +2,15 @@
 // Plays background city traffic ambient noise at 5% volume with seamless, gapless looping.
 // Uses Web Audio API AudioBufferSourceNode (loop = true) for continuous, glitch-free looping,
 // with HTML5 AudioElement (loop = true + ended event retrigger) as fallback,
-// honoring browser autoplay policies on first user interaction.
+// honoring browser autoplay policies on user interaction.
+
+const CANDIDATE_AMBIENT_PATHS = [
+  '/city_traffic_ambient.mp3',
+  '/audio/city_traffic_ambient.mp3',
+  '/traffic_ambient.mp3',
+  '/city-traffic.mp3',
+  '/audio/city-traffic.mp3'
+];
 
 class AmbientAudioManager {
   private audioElement: HTMLAudioElement | null = null;
@@ -17,6 +25,7 @@ class AmbientAudioManager {
   private hasInteracted: boolean = false;
   private listeners: Set<(enabled: boolean, volume: number) => void> = new Set();
   private isBufferLoading: boolean = false;
+  private fallbackPathIndex: number = 0;
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -40,7 +49,8 @@ class AmbientAudioManager {
     if (typeof window === 'undefined') return;
 
     try {
-      this.audioElement = new Audio('/city_traffic_ambient.mp3');
+      this.fallbackPathIndex = 0;
+      this.audioElement = new Audio(CANDIDATE_AMBIENT_PATHS[0]);
       this.audioElement.loop = true;
       this.audioElement.volume = this.soundEnabled ? this.volume : 0;
       this.audioElement.preload = 'auto';
@@ -56,17 +66,14 @@ class AmbientAudioManager {
       });
 
       this.audioElement.addEventListener('error', () => {
-        console.warn('Primary ambient audio path failed, trying fallback path...');
-        if (this.audioElement) {
-          if (this.audioElement.src.includes('/city_traffic_ambient.mp3')) {
-            this.audioElement.src = '/audio/city_traffic_ambient.mp3';
-            this.audioElement.load();
-          } else if (this.audioElement.src.includes('/audio/city_traffic_ambient.mp3')) {
-            this.audioElement.src = '/traffic_ambient.mp3';
-            this.audioElement.load();
-          } else if (this.audioElement.src.includes('/traffic_ambient.mp3')) {
-            this.audioElement.src = '/audio/city-traffic.mp3';
-            this.audioElement.load();
+        this.fallbackPathIndex++;
+        if (this.fallbackPathIndex < CANDIDATE_AMBIENT_PATHS.length && this.audioElement) {
+          const nextPath = CANDIDATE_AMBIENT_PATHS[this.fallbackPathIndex];
+          console.warn(`[AmbientAudio] Primary path failed, trying fallback path: ${nextPath}`);
+          this.audioElement.src = nextPath;
+          this.audioElement.load();
+          if (this.isPlaying && this.soundEnabled && !this.activeSourceNode) {
+            this.audioElement.play().catch(() => {});
           }
         }
       });
@@ -95,13 +102,7 @@ class AmbientAudioManager {
 
       // Fetch and decode MP3 into memory (with fallback paths)
       const tryFetchBuffer = async () => {
-        const candidatePaths = [
-          '/city_traffic_ambient.mp3',
-          '/audio/city_traffic_ambient.mp3',
-          '/traffic_ambient.mp3',
-          '/audio/city-traffic.mp3'
-        ];
-        for (const p of candidatePaths) {
+        for (const p of CANDIDATE_AMBIENT_PATHS) {
           try {
             const res = await fetch(p);
             if (res.ok) {
@@ -142,7 +143,6 @@ class AmbientAudioManager {
 
   // Start continuous, sample-accurate loop in Web Audio
   private startWebAudioLoop(): void {
-    return;
     if (!this.audioContext || !this.audioBuffer || !this.gainNode) return;
 
     try {
@@ -170,7 +170,7 @@ class AmbientAudioManager {
       source.connect(this.gainNode);
       source.start(0);
 
-      // Ramp gain up to 30%
+      // Ramp gain up smoothly to configured volume
       const currTime = this.audioContext.currentTime;
       this.gainNode.gain.cancelScheduledValues(currTime);
       this.gainNode.gain.setValueAtTime(this.gainNode.gain.value, currTime);
@@ -217,7 +217,7 @@ class AmbientAudioManager {
   private setupUserGestureListener(): void {
     if (typeof window === 'undefined') return;
 
-    const handleFirstGesture = () => {
+    const handleUserGesture = () => {
       this.hasInteracted = true;
 
       if (this.audioContext && this.audioContext.state === 'suspended') {
@@ -228,17 +228,25 @@ class AmbientAudioManager {
         this.play();
       }
 
-      // Remove one-time listeners
-      window.removeEventListener('click', handleFirstGesture, true);
-      window.removeEventListener('keydown', handleFirstGesture, true);
-      window.removeEventListener('touchstart', handleFirstGesture, true);
-      window.removeEventListener('pointerdown', handleFirstGesture, true);
+      // Resume any pending riot or commendation audio that was blocked by autoplay policies
+      if (typeof window !== 'undefined') {
+        if (window.__riotAudioPending && window.__riotAudio) {
+          window.__riotAudio.play().then(() => {
+            window.__riotAudioPending = false;
+          }).catch(() => {});
+        }
+        if (window.__commendationAudioPending && window.__commendationAudio) {
+          window.__commendationAudio.play().then(() => {
+            window.__commendationAudioPending = false;
+          }).catch(() => {});
+        }
+      }
     };
 
-    window.addEventListener('click', handleFirstGesture, true);
-    window.addEventListener('keydown', handleFirstGesture, true);
-    window.addEventListener('touchstart', handleFirstGesture, true);
-    window.addEventListener('pointerdown', handleFirstGesture, true);
+    window.addEventListener('click', handleUserGesture, { capture: true });
+    window.addEventListener('keydown', handleUserGesture, { capture: true });
+    window.addEventListener('touchstart', handleUserGesture, { capture: true, passive: true });
+    window.addEventListener('pointerdown', handleUserGesture, { capture: true });
   }
 
   public isEnabled(): boolean {
@@ -289,6 +297,10 @@ class AmbientAudioManager {
   public play(): void {
     if (!this.soundEnabled) return;
     this.hasInteracted = true;
+
+    if (this.audioContext && this.audioContext.state === 'suspended') {
+      this.audioContext.resume().catch(() => {});
+    }
 
     // 1. Try high-fidelity Web Audio API gapless buffer loop
     if (this.audioBuffer && this.audioContext && this.gainNode) {

@@ -2,10 +2,16 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import { NeighborhoodSimulation } from './components/NeighborhoodSimulation';
 import { SurveyStage } from './components/SurveyStage';
 import { ResultsView } from './components/ResultsView';
-import { GoogleSheetSyncModal } from './components/GoogleSheetSyncModal';
 import { ManualSlidersDrawer } from './components/ManualSlidersDrawer';
 import { MagnifiedGaugeDrawer } from './components/MagnifiedGaugeDrawer';
+
+// # BEGIN TEMPORARY SHEETS SYNC
+// The following component and context hook provide live spreadsheet synchronization
+// during City stakeholder review. They are isolated here for removal before production.
+import { GoogleSheetSyncModal } from './components/GoogleSheetSyncModal';
 import { useAppText } from './context/TextContentContext';
+// # END TEMPORARY SHEETS SYNC
+
 import {
   SURVEY_QUESTIONS,
   INITIAL_SIM_CONFIG,
@@ -18,8 +24,11 @@ import { feedback, triggerFeedback } from './utils/feedback';
 import { ambientAudio } from './utils/ambientAudio';
 
 export default function App() {
+  // # BEGIN TEMPORARY SHEETS SYNC
   const { t, isCustomActive, itemCount } = useAppText();
   const [isSyncModalOpen, setIsSyncModalOpen] = useState<boolean>(false);
+  // # END TEMPORARY SHEETS SYNC
+
   const [showManualSliders, setShowManualSliders] = useState<boolean>(false);
   const [showMagnifiedGauge, setShowMagnifiedGauge] = useState<boolean>(false);
   const [isHarmonyActive, setIsHarmonyActive] = useState<boolean>(false);
@@ -44,6 +53,7 @@ export default function App() {
     curbsidePct: 45,
     onReshuffle: () => {}
   });
+
   const [currentStep, setCurrentStep] = useState<number>(() => {
     try {
       const saved = localStorage.getItem('curbsideCompass_step');
@@ -52,6 +62,7 @@ export default function App() {
       return 0;
     }
   });
+
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string>>(() => {
     try {
       const saved = localStorage.getItem('curbsideCompass_answers');
@@ -60,6 +71,7 @@ export default function App() {
       return {};
     }
   });
+
   const [simConfig, setSimConfig] = useState<SimulationConfig>(() => {
     try {
       const saved = localStorage.getItem('curbsideCompass_simConfig');
@@ -68,6 +80,7 @@ export default function App() {
       return INITIAL_SIM_CONFIG;
     }
   });
+
   const [isCompleted, setIsCompleted] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem('curbsideCompass_completed');
@@ -76,24 +89,23 @@ export default function App() {
       return false;
     }
   });
+
   const [showValidationError, setShowValidationError] = useState<boolean>(false);
   const [validationErrorMsg, setValidationErrorMsg] = useState<string | null>(null);
 
+  // Batched & protected localStorage persistence to prevent I/O blocking and quota errors
   useEffect(() => {
-    localStorage.setItem('curbsideCompass_step', currentStep.toString());
-  }, [currentStep]);
+    try {
+      localStorage.setItem('curbsideCompass_step', currentStep.toString());
+      localStorage.setItem('curbsideCompass_answers', JSON.stringify(selectedAnswers));
+      localStorage.setItem('curbsideCompass_simConfig', JSON.stringify(simConfig));
+      localStorage.setItem('curbsideCompass_completed', isCompleted.toString());
+    } catch (err) {
+      // Graceful fallback if storage is disabled or quota exceeded
+      console.warn('[Storage] Local storage persistence warning:', err);
+    }
+  }, [currentStep, selectedAnswers, simConfig, isCompleted]);
 
-  useEffect(() => {
-    localStorage.setItem('curbsideCompass_answers', JSON.stringify(selectedAnswers));
-  }, [selectedAnswers]);
-
-  useEffect(() => {
-    localStorage.setItem('curbsideCompass_simConfig', JSON.stringify(simConfig));
-  }, [simConfig]);
-
-  useEffect(() => {
-    localStorage.setItem('curbsideCompass_completed', isCompleted.toString());
-  }, [isCompleted]);
   const [policyNote, setPolicyNote] = useState<string>(
     'Default neighborhood layout active (2.5 cars/home, 0.5 visitor passes, 3 driveway spots).'
   );
@@ -278,7 +290,8 @@ export default function App() {
         </div>
 
         <div className="flex items-center gap-1.5 sm:gap-2.5 flex-shrink-0">
-          {/* Google Sheets Sync Button */}
+          {/* # BEGIN TEMPORARY SHEETS SYNC */}
+          {/* Google Sheets Sync Button - To be removed prior to public production release */}
           <button
             type="button"
             onClick={() => setIsSyncModalOpen(true)}
@@ -298,6 +311,7 @@ export default function App() {
               <span className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse" />
             )}
           </button>
+          {/* # END TEMPORARY SHEETS SYNC */}
 
           <div className="flex items-center bg-[#003566] rounded-md border border-[#002244] overflow-hidden flex-shrink-0">
             <button
@@ -502,11 +516,13 @@ export default function App() {
         </section>
       </main>
 
-      {/* Google Sheets Sync Modal */}
+      {/* # BEGIN TEMPORARY SHEETS SYNC */}
+      {/* Google Sheets Sync Modal - To be removed prior to public production release */}
       <GoogleSheetSyncModal
         isOpen={isSyncModalOpen}
         onClose={() => setIsSyncModalOpen(false)}
       />
+      {/* # END TEMPORARY SHEETS SYNC */}
     </div>
   );
 }
