@@ -287,7 +287,6 @@ class AmbientAudioManager {
   }
 
   public play(): void {
-    return;
     if (!this.soundEnabled) return;
     this.hasInteracted = true;
 

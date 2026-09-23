@@ -3,6 +3,9 @@ declare global {
     __riotAudioPlayed?: boolean; 
     __riotAudioPending?: boolean;
     __riotAudio?: HTMLAudioElement;
+    __riotNoisePlayed?: boolean;
+    __riotNoisePending?: boolean;
+    __riotNoiseAudio?: HTMLAudioElement;
     __commendationAudioPlayed?: boolean;
     __commendationAudioPending?: boolean;
     __commendationAudio?: HTMLAudioElement;
@@ -13,6 +16,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { SimulationConfig } from '../types';
 import { Volume2, VolumeX, Sliders, RefreshCw, AlertTriangle, ShieldCheck, Flame, RotateCcw, CheckCircle } from 'lucide-react';
 import { feedback, triggerFeedback } from '../utils/feedback';
+import { ambientAudio } from '../utils/ambientAudio';
 
 interface NeighborhoodSimulationProps {
   config: SimulationConfig;
@@ -82,6 +86,36 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
   useEffect(() => {
     return feedback.subscribe((enabled) => setSoundEnabled(enabled));
   }, []);
+
+  // Sync all simulation audio elements with mute/unmute and completion state
+  useEffect(() => {
+    soundEnabledRef.current = soundEnabled && !isCompleted;
+    if (!soundEnabled || isCompleted) {
+      if (window.__riotAudio) {
+        window.__riotAudio.pause();
+      }
+      if (window.__riotNoiseAudio) {
+        window.__riotNoiseAudio.pause();
+      }
+      if (window.__commendationAudio) {
+        window.__commendationAudio.pause();
+      }
+    } else {
+      if (isRiotActive) {
+        if (window.__riotAudio) {
+          window.__riotAudio.play().catch(() => { window.__riotAudioPending = true; });
+        }
+        if (window.__riotNoiseAudio) {
+          window.__riotNoiseAudio.play().catch(() => { window.__riotNoisePending = true; });
+        }
+      }
+      if (isHarmonyActive) {
+        if (window.__commendationAudio) {
+          window.__commendationAudio.play().catch(() => { window.__commendationAudioPending = true; });
+        }
+      }
+    }
+  }, [soundEnabled, isCompleted, isRiotActive, isHarmonyActive]);
 
   // Audio context reference
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -224,6 +258,19 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
+    getAudioContext();
+    if (window.__riotAudioPending && window.__riotAudio) {
+      window.__riotAudio.play().catch(() => {});
+      window.__riotAudioPending = false;
+    }
+    if (window.__riotNoisePending && window.__riotNoiseAudio) {
+      window.__riotNoiseAudio.play().catch(() => {});
+      window.__riotNoisePending = false;
+    }
+    if (window.__commendationAudioPending && window.__commendationAudio) {
+      window.__commendationAudio.play().catch(() => {});
+      window.__commendationAudioPending = false;
+    }
     if (e.touches.length === 2) {
       const dist = Math.hypot(
         e.touches[0].clientX - e.touches[1].clientX,
@@ -2676,17 +2723,21 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
             window.__commendationAudioPlayed = true;
 
             if (!window.__commendationAudio) {
-              window.__commendationAudio = new Audio('/audio/city_planning_commendation.mp3');
-              window.__commendationAudio.volume = 0.35;
+              window.__commendationAudio = new Audio('/good_neighbourhood.mp3');
+              window.__commendationAudio.volume = 0.65;
               window.__commendationAudio.addEventListener('error', () => {
-                if (window.__commendationAudio && window.__commendationAudio.src.includes('/audio/city_planning_commendation.mp3')) {
-                  window.__commendationAudio.src = '/good_neighbourhood.mp3';
+                if (window.__commendationAudio && window.__commendationAudio.src.includes('/good_neighbourhood.mp3')) {
+                  window.__commendationAudio.src = '/audio/good_neighbourhood.mp3';
+                  window.__commendationAudio.load();
+                  if (soundEnabledRef.current) window.__commendationAudio.play().catch(() => {});
+                } else if (window.__commendationAudio && window.__commendationAudio.src.includes('/audio/good_neighbourhood.mp3')) {
+                  window.__commendationAudio.src = '/audio/city_planning_commendation.mp3';
                   window.__commendationAudio.load();
                   if (soundEnabledRef.current) window.__commendationAudio.play().catch(() => {});
                 }
               });
             } else {
-              window.__commendationAudio.volume = 0.35;
+              window.__commendationAudio.volume = 0.65;
             }
 
             window.__commendationAudio.currentTime = 0;
@@ -2712,36 +2763,38 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
         }
       }
 
-      // Flag to track if we need to trigger audio
-      let policeSpawnedThisFrame = false;
+      // Flag to track emergency response
       while (emergencyVehicles.length < numBurning * 2) {
         const idx = Math.floor(emergencyVehicles.length / 2);
         const isPolice = emergencyVehicles.length % 2 === 0;
         if (isPolice) {
-          if (emergencyVehicles.length === 0) policeSpawnedThisFrame = true;
           emergencyVehicles.push({ type: 'police', x: -800 - idx * 450, y: 117, baseY: 117, targetY: 117, w: 15, d: 7, baseSpeed: 2.2, speed: 2.2, color: '#ffffff', stuckTimer: 0, honkCooldown: 0, honkBubbleTimer: 0, isEmergency: true });
         } else {
           emergencyVehicles.push({ type: 'firetruck', x: -900 - idx * 450, y: 117, baseY: 117, targetY: 117, w: 28, d: 9, baseSpeed: 2.0, speed: 2.0, color: '#cc0000', stuckTimer: 0, honkCooldown: 0, honkBubbleTimer: 0, isEmergency: true });
         }
       }
 
-
-
-      // Trigger audio precisely when the police asset is injected into the rendering pipeline (asset mounting event)
-      if (policeSpawnedThisFrame && soundEnabledRef.current && !window.__riotAudioPlayed) {
+      // Trigger Riot Audio (Breaking News Report broadcast + background Riot Noise)
+      const isRiotState = hasBurningCars || isRioting;
+      if (isRiotState && soundEnabledRef.current && !window.__riotAudioPlayed) {
          window.__riotAudioPlayed = true;
-         
+         triggerVisualAudioAlert('🚨 Edmonton Breaking News: Curbside Parking Crisis', 'siren');
+
+         // Duck ambient traffic during crisis
+         ambientAudio.setVolume(0.015);
+
+         // 1. Breaking News Report Broadcast Audio
          if (!window.__riotAudio) {
            window.__riotAudio = new Audio(
              typeof window !== 'undefined' && window.__agentArtifactAudioUrl
                ? window.__agentArtifactAudioUrl
-               : '/audio/edmonton_news_report_riot.mp3'
+               : '/riot_news_report.mp3'
            );
            window.__riotAudio.volume = 0.85;
            window.__riotAudio.loop = true;
            window.__riotAudio.addEventListener('error', () => {
              if (window.__riotAudio) {
-               if (window.__riotAudio.src.includes('/audio/edmonton_news_report_riot.mp3')) {
+               if (window.__riotAudio.src.includes('/riot_news_report.mp3')) {
                  window.__riotAudio.src = '/audio/riot_news_report.mp3';
                  window.__riotAudio.load();
                  if (soundEnabledRef.current) window.__riotAudio.play().catch(() => {});
@@ -2750,12 +2803,14 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
                  window.__riotAudio.load();
                  if (soundEnabledRef.current) window.__riotAudio.play().catch(() => {});
                } else if (window.__riotAudio.src.includes('/edmonton_news_report_riot.mp3')) {
-                 window.__riotAudio.src = '/audio/riot_noise.mp3';
+                 window.__riotAudio.src = '/audio/edmonton_news_report_riot.mp3';
                  window.__riotAudio.load();
                  if (soundEnabledRef.current) window.__riotAudio.play().catch(() => {});
                }
              }
            });
+         } else {
+           window.__riotAudio.volume = 0.85;
          }
          
          window.__riotAudio.currentTime = 0;
@@ -2766,14 +2821,48 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
              window.__riotAudioPending = true;
            });
          }
+
+         // 2. Ambient Riot Chaos Noise (Crowd shouting, alarms, street tumult)
+         if (!window.__riotNoiseAudio) {
+           window.__riotNoiseAudio = new Audio('/riot_noise.mp3');
+           window.__riotNoiseAudio.volume = 0.25;
+           window.__riotNoiseAudio.loop = true;
+           window.__riotNoiseAudio.addEventListener('error', () => {
+             if (window.__riotNoiseAudio && window.__riotNoiseAudio.src.includes('/riot_noise.mp3')) {
+               window.__riotNoiseAudio.src = '/audio/riot_noise.mp3';
+               window.__riotNoiseAudio.load();
+               if (soundEnabledRef.current) window.__riotNoiseAudio.play().catch(() => {});
+             }
+           });
+         } else {
+           window.__riotNoiseAudio.volume = 0.25;
+         }
+
+         window.__riotNoiseAudio.currentTime = 0;
+         const noisePromise = window.__riotNoiseAudio.play();
+         if (noisePromise !== undefined) {
+           noisePromise.catch(e => {
+             console.warn('Riot noise playback blocked by browser autoplay policy. Pending user interaction.', e);
+             window.__riotNoisePending = true;
+           });
+         }
       }
       
       // Stop and reset audio when riot ends completely
-      if (numBurning === 0) {
-        window.__riotAudioPlayed = false;
-        if (window.__riotAudio) {
-          window.__riotAudio.pause();
-          window.__riotAudio.currentTime = 0;
+      if (!isRiotState) {
+        if (window.__riotAudioPlayed) {
+          window.__riotAudioPlayed = false;
+          // Restore normal ambient traffic volume
+          ambientAudio.setVolume(0.05);
+
+          if (window.__riotAudio) {
+            window.__riotAudio.pause();
+            window.__riotAudio.currentTime = 0;
+          }
+          if (window.__riotNoiseAudio) {
+            window.__riotNoiseAudio.pause();
+            window.__riotNoiseAudio.currentTime = 0;
+          }
         }
       }
       
@@ -3754,6 +3843,19 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
         }
       }
       window.__riotAudioPending = false;
+      window.__riotAudioPlayed = false;
+
+      if (window.__riotNoiseAudio) {
+        try {
+          window.__riotNoiseAudio.pause();
+          window.__riotNoiseAudio.currentTime = 0;
+        } catch {
+          // Ignore
+        }
+      }
+      window.__riotNoisePending = false;
+      window.__riotNoisePlayed = false;
+
       if (window.__commendationAudio) {
         try {
           window.__commendationAudio.pause();
@@ -3824,6 +3926,11 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
             if (window.__riotAudioPending && window.__riotAudio) {
               window.__riotAudio.play().catch(err => console.warn('Riot audio still blocked', err));
               window.__riotAudioPending = false;
+            }
+            // Resume riot noise audio if it was blocked by autoplay policies
+            if (window.__riotNoisePending && window.__riotNoiseAudio) {
+              window.__riotNoiseAudio.play().catch(err => console.warn('Riot noise still blocked', err));
+              window.__riotNoisePending = false;
             }
             // Resume commendation audio if it was blocked by autoplay policies
             if (window.__commendationAudioPending && window.__commendationAudio) {
@@ -3950,6 +4057,18 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
               onClick={() => {
                 getAudioContext();
                 feedback.toggleSound();
+                if (window.__riotAudioPending && window.__riotAudio) {
+                  window.__riotAudio.play().catch(() => {});
+                  window.__riotAudioPending = false;
+                }
+                if (window.__riotNoisePending && window.__riotNoiseAudio) {
+                  window.__riotNoiseAudio.play().catch(() => {});
+                  window.__riotNoisePending = false;
+                }
+                if (window.__commendationAudioPending && window.__commendationAudio) {
+                  window.__commendationAudio.play().catch(() => {});
+                  window.__commendationAudioPending = false;
+                }
               }}
               title={soundEnabled ? 'Mute Simulation & City Traffic Noise' : 'Enable City Traffic Ambience (5%) & SFX (15%)'}
               className={`min-h-[44px] min-w-[44px] p-2 flex items-center justify-center rounded-md transition-colors cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFC72C] ${
