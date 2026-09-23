@@ -8,6 +8,7 @@
     "build": "vite build && (cp -r dist build 2>/dev/null || true)",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
+    "test:qa": "tsx scripts/qa_audit_256.ts",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
