@@ -3,9 +3,6 @@ declare global {
     __riotAudioPlayed?: boolean; 
     __riotAudioPending?: boolean;
     __riotAudio?: HTMLAudioElement;
-    __riotNoisePlayed?: boolean;
-    __riotNoisePending?: boolean;
-    __riotNoiseAudio?: HTMLAudioElement;
     __commendationAudioPlayed?: boolean;
     __commendationAudioPending?: boolean;
     __commendationAudio?: HTMLAudioElement;
@@ -24,6 +21,21 @@ interface NeighborhoodSimulationProps {
   activeQuestionNumber?: number;
   policyNote?: string;
   isCompleted?: boolean;
+  showControls?: boolean;
+  onToggleControls?: () => void;
+  onToggleMagnifiedGauge?: () => void;
+  onSimulationMetricsChange?: (metrics: {
+    activeHouseholdCars: number;
+    activeVisitorCars: number;
+    totalDwellings: number;
+    totalWeeklyDeliveries: number;
+    circlingCarCount: number;
+    curbsideDemandCount: number;
+    curbsideStallsCapacity: number;
+    curbsidePct: number;
+    onReshuffle: () => void;
+  }) => void;
+  onHarmonyActiveChange?: (isActive: boolean) => void;
 }
 
 // Base legal curbside stalls when all 6 lots have standard front driveways and curb cuts
@@ -35,14 +47,27 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
   onConfigChange,
   activeQuestionNumber,
   policyNote,
-  isCompleted
+  isCompleted,
+  showControls: externalShowControls,
+  onToggleControls,
+  onToggleMagnifiedGauge,
+  onSimulationMetricsChange,
+  onHarmonyActiveChange
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const gaugeCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   const [soundEnabled, setSoundEnabled] = useState<boolean>(feedback.isSoundEnabled());
-  const [showControls, setShowControls] = useState<boolean>(false);
+  const [internalShowControls, setInternalShowControls] = useState<boolean>(false);
+  const showControls = externalShowControls !== undefined ? externalShowControls : internalShowControls;
+  const setShowControls = useCallback((valOrFn: boolean | ((prev: boolean) => boolean)) => {
+    if (onToggleControls) {
+      onToggleControls();
+    } else {
+      setInternalShowControls(valOrFn);
+    }
+  }, [onToggleControls]);
   const [curbsideDemandCount, setCurbsideDemandCount] = useState<number>(0);
   const [curbsideStallsCapacity, setCurbsideStallsCapacity] = useState<number>(BASE_LEGAL_CURBSIDE_STALLS + 1);
   const [curbsidePct, setCurbsidePct] = useState<number>(0);
@@ -50,15 +75,9 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
   const [isRiotActive, setIsRiotActive] = useState<boolean>(false);
   const [isHarmonyActive, setIsHarmonyActive] = useState<boolean>(false);
   const [zoomScale, setZoomScale] = useState<number>(1.33);
-  const [visualAudioAlert, setVisualAudioAlert] = useState<{ text: string; icon: 'horn' | 'siren' | 'alarm' | 'medal' } | null>(null);
-  const audioAlertTimerRef = useRef<number | null>(null);
 
-  const triggerVisualAudioAlert = useCallback((text: string, icon: 'horn' | 'siren' | 'alarm' | 'medal' = 'horn') => {
-    setVisualAudioAlert({ text, icon });
-    if (audioAlertTimerRef.current) window.clearTimeout(audioAlertTimerRef.current);
-    audioAlertTimerRef.current = window.setTimeout(() => {
-      setVisualAudioAlert(null);
-    }, 2200);
+  const triggerVisualAudioAlert = useCallback((_text: string, _icon: 'horn' | 'siren' | 'alarm' | 'medal' = 'horn') => {
+    // Visual sound caption removed per user request
   }, []);
 
   // Escape key listener for Manual Sliders Drawer
@@ -94,9 +113,6 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
       if (window.__riotAudio) {
         window.__riotAudio.pause();
       }
-      if (window.__riotNoiseAudio) {
-        window.__riotNoiseAudio.pause();
-      }
       if (window.__commendationAudio) {
         window.__commendationAudio.pause();
       }
@@ -104,9 +120,6 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
       if (isRiotActive) {
         if (window.__riotAudio) {
           window.__riotAudio.play().catch(() => { window.__riotAudioPending = true; });
-        }
-        if (window.__riotNoiseAudio) {
-          window.__riotNoiseAudio.play().catch(() => { window.__riotNoisePending = true; });
         }
       }
       if (isHarmonyActive) {
@@ -116,6 +129,11 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
       }
     }
   }, [soundEnabled, isCompleted, isRiotActive, isHarmonyActive]);
+
+  // Notify parent of harmony state change
+  useEffect(() => {
+    onHarmonyActiveChange?.(isHarmonyActive);
+  }, [isHarmonyActive, onHarmonyActiveChange]);
 
   // Audio context reference
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -262,10 +280,6 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
     if (window.__riotAudioPending && window.__riotAudio) {
       window.__riotAudio.play().catch(() => {});
       window.__riotAudioPending = false;
-    }
-    if (window.__riotNoisePending && window.__riotNoiseAudio) {
-      window.__riotNoiseAudio.play().catch(() => {});
-      window.__riotNoisePending = false;
     }
     if (window.__commendationAudioPending && window.__commendationAudio) {
       window.__commendationAudio.play().catch(() => {});
@@ -2724,7 +2738,7 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
 
             if (!window.__commendationAudio) {
               window.__commendationAudio = new Audio('/good_neighbourhood.mp3');
-              window.__commendationAudio.volume = 0.65;
+              window.__commendationAudio.volume = 0.35;
               window.__commendationAudio.addEventListener('error', () => {
                 if (window.__commendationAudio && window.__commendationAudio.src.includes('/good_neighbourhood.mp3')) {
                   window.__commendationAudio.src = '/audio/good_neighbourhood.mp3';
@@ -2737,7 +2751,7 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
                 }
               });
             } else {
-              window.__commendationAudio.volume = 0.65;
+              window.__commendationAudio.volume = 0.35;
             }
 
             window.__commendationAudio.currentTime = 0;
@@ -2790,7 +2804,7 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
                ? window.__agentArtifactAudioUrl
                : '/riot_news_report.mp3'
            );
-           window.__riotAudio.volume = 0.85;
+           window.__riotAudio.volume = 0.35;
            window.__riotAudio.loop = true;
            window.__riotAudio.addEventListener('error', () => {
              if (window.__riotAudio) {
@@ -2810,7 +2824,7 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
              }
            });
          } else {
-           window.__riotAudio.volume = 0.85;
+           window.__riotAudio.volume = 0.35;
          }
          
          window.__riotAudio.currentTime = 0;
@@ -2819,31 +2833,6 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
            playPromise.catch(e => {
              console.warn('Riot audio playback blocked by browser autoplay policy. Pending user interaction.', e);
              window.__riotAudioPending = true;
-           });
-         }
-
-         // 2. Ambient Riot Chaos Noise (Crowd shouting, alarms, street tumult)
-         if (!window.__riotNoiseAudio) {
-           window.__riotNoiseAudio = new Audio('/riot_noise.mp3');
-           window.__riotNoiseAudio.volume = 0.25;
-           window.__riotNoiseAudio.loop = true;
-           window.__riotNoiseAudio.addEventListener('error', () => {
-             if (window.__riotNoiseAudio && window.__riotNoiseAudio.src.includes('/riot_noise.mp3')) {
-               window.__riotNoiseAudio.src = '/audio/riot_noise.mp3';
-               window.__riotNoiseAudio.load();
-               if (soundEnabledRef.current) window.__riotNoiseAudio.play().catch(() => {});
-             }
-           });
-         } else {
-           window.__riotNoiseAudio.volume = 0.25;
-         }
-
-         window.__riotNoiseAudio.currentTime = 0;
-         const noisePromise = window.__riotNoiseAudio.play();
-         if (noisePromise !== undefined) {
-           noisePromise.catch(e => {
-             console.warn('Riot noise playback blocked by browser autoplay policy. Pending user interaction.', e);
-             window.__riotNoisePending = true;
            });
          }
       }
@@ -2859,10 +2848,7 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
             window.__riotAudio.pause();
             window.__riotAudio.currentTime = 0;
           }
-          if (window.__riotNoiseAudio) {
-            window.__riotNoiseAudio.pause();
-            window.__riotNoiseAudio.currentTime = 0;
-          }
+          
         }
       }
       
@@ -3845,16 +3831,7 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
       window.__riotAudioPending = false;
       window.__riotAudioPlayed = false;
 
-      if (window.__riotNoiseAudio) {
-        try {
-          window.__riotNoiseAudio.pause();
-          window.__riotNoiseAudio.currentTime = 0;
-        } catch {
-          // Ignore
-        }
-      }
-      window.__riotNoisePending = false;
-      window.__riotNoisePlayed = false;
+      
 
       if (window.__commendationAudio) {
         try {
@@ -3866,10 +3843,6 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
       }
       window.__commendationAudioPending = false;
       window.__commendationAudioPlayed = false;
-      if (audioAlertTimerRef.current) {
-        clearTimeout(audioAlertTimerRef.current);
-        audioAlertTimerRef.current = null;
-      }
     };
   }, [playHonk, playCriticalAlarm]);
 
@@ -3888,6 +3861,23 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
   const activeHouseholdCars = Math.round(config.householdCarsPerHome * totalDwellings);
   const activeVisitorCars = Math.round(config.visitorPassesPerHome * totalDwellings);
   const totalWeeklyDeliveries = Math.round(config.deliveriesPerHomePerWeek * totalDwellings);
+
+  // Notify parent of simulation live metrics for the question-overlay drawer
+  useEffect(() => {
+    if (onSimulationMetricsChange) {
+      onSimulationMetricsChange({
+        activeHouseholdCars,
+        activeVisitorCars,
+        totalDwellings,
+        totalWeeklyDeliveries,
+        circlingCarCount,
+        curbsideDemandCount,
+        curbsideStallsCapacity,
+        curbsidePct,
+        onReshuffle: handleReshuffle
+      });
+    }
+  }, [onSimulationMetricsChange, activeHouseholdCars, activeVisitorCars, totalDwellings, totalWeeklyDeliveries, circlingCarCount, curbsideDemandCount, curbsideStallsCapacity, curbsidePct]);
 
   const getGaugeStatusColor = () => {
     if (curbsidePct >= 150) return 'text-[#E8552D] bg-[#E8552D]/10 border-[#E8552D]/40';
@@ -3927,11 +3917,7 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
               window.__riotAudio.play().catch(err => console.warn('Riot audio still blocked', err));
               window.__riotAudioPending = false;
             }
-            // Resume riot noise audio if it was blocked by autoplay policies
-            if (window.__riotNoisePending && window.__riotNoiseAudio) {
-              window.__riotNoiseAudio.play().catch(err => console.warn('Riot noise still blocked', err));
-              window.__riotNoisePending = false;
-            }
+            
             // Resume commendation audio if it was blocked by autoplay policies
             if (window.__commendationAudioPending && window.__commendationAudio) {
               window.__commendationAudio.play().catch(err => console.warn('Commendation audio still blocked', err));
@@ -3951,47 +3937,6 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
         </canvas>
 
         
-        {/* Good News Harmony Overlay */}
-        {isHarmonyActive && !isRiotActive && (
-          <div
-            id="harmony-overlay"
-            className="absolute inset-0 pointer-events-none z-30 flex flex-col justify-between overflow-hidden rounded-lg"
-          >
-            <div className="m-2 sm:m-4 flex items-center gap-2 sm:gap-3 bg-white/95 border-l-4 border-[#009A44] px-2.5 py-1 sm:px-4 sm:py-2 rounded shadow-2xl max-w-max">
-              <span className="bg-[#009A44] text-white font-extrabold text-[10px] sm:text-xs px-1.5 py-0.5 rounded">
-                ⭐ EXCELLENCE
-              </span>
-              <span className="text-[#004B8D] text-[10px] sm:text-xs md:text-sm font-bold tracking-wider">
-                CITY PLANNING COMMENDATION
-              </span>
-            </div>
-
-            <div className="w-full bg-[#009A44]/95 border-t-2 sm:border-t-4 border-[#FFC72C] shadow-2xl flex flex-col justify-between box-border">
-              <div className="bg-[#FFC72C] text-[#111] text-[9px] sm:text-xs font-black px-2.5 py-0.5 sm:px-4 sm:py-1 tracking-widest flex items-center gap-1.5 uppercase border-b border-white/20">
-                <CheckCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> AWARD: OPTIMAL CURB MANAGEMENT
-              </div>
-              <div className="px-2.5 py-1 sm:px-4 sm:py-1.5">
-                <h4 className="text-white text-xs sm:text-sm font-black uppercase tracking-wide m-0 truncate">
-                  TODAY, THE TRANSFORMATION IN THIS NEIGHBORHOOD IS NOTHING SHORT OF REMARKABLE
-                </h4>
-                <p className="text-[#b3ffd1] text-[9px] sm:text-xs font-bold m-0 truncate">
-                  CHILDREN PLAYING SAFELY ON TREE-SHADED SIDEWALKS • QUIETER, GREENER & FAR MORE CONNECTED
-                </p>
-              </div>
-              <div className="w-full h-5 sm:h-6 bg-white border-t border-[#004B8D] flex items-center overflow-hidden">
-                <div className="bg-[#004B8D] text-white font-black text-[9px] px-2 h-full flex items-center whitespace-nowrap z-10">
-                  REPORTER
-                </div>
-                <div className="text-[#004B8D] text-[9px] sm:text-[10px] font-bold px-2 whitespace-nowrap overflow-hidden flex-1 h-full flex items-center">
-                  <span className="inline-block animate-marquee uppercase">
-                    "The chaotic dash for curb space has been replaced by children playing safely on tree-shaded sidewalks, neighbors chatting on front lawns, and a steady, calm flow of cars, bicycles, and scooters safely sharing the road. When a neighborhood works together, everyone wins!"
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Breaking News Riot Overlay (appears at critical overload or vehicle fire) */}
         {isRiotActive && (
           <div
@@ -4025,25 +3970,11 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
                 <div className="bg-[#FFC72C] text-[#111] font-black text-[9px] px-2 h-full flex items-center whitespace-nowrap z-10">
                   REPORTER
                 </div>
-                <div className="whitespace-nowrap text-[10px] sm:text-xs font-bold text-white animate-marquee pl-4">
+                <div className="whitespace-nowrap text-[10px] sm:text-xs font-bold text-white animate-marquee-slow pl-4">
                   🚨 "THIS IS ABSOLUTE MADNESS, LADIES AND GENTLEMEN! THE STREETS ARE COMPLETELY FLOODED! LOOK AT THE SIGNS: 'MORE PARKING' AND 'HOMES FOR CARS'! POLICE SWARMING IN AS TEMPERS FLARE OUT OF CONTROL!" 🚨
                 </div>
               </div>
             </div>
-          </div>
-        )}
-
-        {/* Visual Audio Event Alert (accessible indicator for non-auditory and muted users) */}
-        {visualAudioAlert && (
-          <div
-            role="status"
-            aria-live="polite"
-            className="absolute top-2 left-1/2 -translate-x-1/2 z-35 bg-[#11283f]/95 border-2 border-[#FFC72C] text-white px-3.5 py-1.5 rounded-full shadow-2xl flex items-center gap-2 text-xs font-bold pointer-events-none backdrop-blur-md"
-          >
-            <span className="text-sm">
-              {visualAudioAlert.icon === 'siren' ? '🚨' : visualAudioAlert.icon === 'alarm' ? '⚠️' : visualAudioAlert.icon === 'medal' ? '⭐' : '📢'}
-            </span>
-            <span className="tracking-wide text-[#FFC72C]">{visualAudioAlert.text}</span>
           </div>
         )}
 
@@ -4061,10 +3992,7 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
                   window.__riotAudio.play().catch(() => {});
                   window.__riotAudioPending = false;
                 }
-                if (window.__riotNoisePending && window.__riotNoiseAudio) {
-                  window.__riotNoiseAudio.play().catch(() => {});
-                  window.__riotNoisePending = false;
-                }
+                
                 if (window.__commendationAudioPending && window.__commendationAudio) {
                   window.__commendationAudio.play().catch(() => {});
                   window.__commendationAudioPending = false;
@@ -4117,10 +4045,34 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
             </button>
           </div>
 
-          {/* Compact Curbside Dial Gauge - with clear legible typography */}
+          {/* Compact Curbside Dial Gauge - with clear legible typography and interactive magnified gauge toggle */}
           <div
             id="hud-gauge-widget"
-            className={`bg-[#193A5A]/90 backdrop-blur-md border border-[#0081BC]/40 p-1 sm:p-2 rounded-md sm:rounded-lg shadow-lg flex flex-col items-center transition-all self-end origin-top-right scale-50 lg:scale-100 [@media(orientation:landscape)_and_(max-height:540px)]:scale-50 [@media(max-height:540px)]:scale-50 -mb-[42px] lg:mb-0 [@media(orientation:landscape)_and_(max-height:540px)]:-mb-[42px] [@media(max-height:540px)]:-mb-[42px] w-[130px] sm:w-[140px] ${
+            role="button"
+            tabIndex={0}
+            onClick={() => {
+              triggerFeedback('button');
+              if (onToggleMagnifiedGauge) {
+                onToggleMagnifiedGauge();
+              } else {
+                setShowControls((prev) => !prev);
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                triggerFeedback('button');
+                if (onToggleMagnifiedGauge) {
+                  onToggleMagnifiedGauge();
+                } else {
+                  setShowControls((prev) => !prev);
+                }
+              }
+            }}
+            title="Curbside Parking Gauge: Click to view magnified gauge analysis"
+            aria-label="Curbside Parking Gauge - Click to view magnified gauge analysis"
+            aria-haspopup="dialog"
+            className={`bg-[#193A5A]/90 backdrop-blur-md border border-[#0081BC]/40 hover:border-[#FFC72C]/80 hover:bg-[#1f476e]/95 p-1 sm:p-2 rounded-md sm:rounded-lg shadow-lg flex flex-col items-center transition-all self-end origin-top-right scale-50 lg:scale-100 [@media(orientation:landscape)_and_(max-height:540px)]:scale-50 [@media(max-height:540px)]:scale-50 -mb-[42px] lg:mb-0 [@media(orientation:landscape)_and_(max-height:540px)]:-mb-[42px] [@media(max-height:540px)]:-mb-[42px] w-[130px] sm:w-[140px] cursor-pointer select-none active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFC72C] group ${
               curbsidePct >= 150 ? 'animate-bounce border-[#E8552D]' : ''
             }`}
           >
@@ -4157,151 +4109,11 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
             )}
           </div>
 
-          {/* Manual Sliders Overlay Drawer */}
-          {showControls && (
-            <div
-              id="manual-sliders-drawer"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="manual-sliders-title"
-              className="bg-[#11283f]/95 backdrop-blur-md border border-[#0081BC]/50 p-3 sm:p-3.5 rounded-xl shadow-2xl w-[calc(100vw-20px)] max-w-[280px] sm:w-72 max-h-[80vh] md:max-h-[85%] overflow-y-auto flex flex-col gap-2 text-xs text-white z-40"
-            >
-              <div className="flex items-center justify-between pb-1.5 border-b border-white/10">
-                <span id="manual-sliders-title" className="font-bold text-[#FFC72C] flex items-center gap-1.5 text-xs sm:text-sm">
-                  <Sliders className="w-4 h-4" /> Manual Sliders
-                </span>
-                <button
-                  type="button"
-                  aria-label="Close manual sliders"
-                  onClick={() => {
-                    triggerFeedback('button');
-                    setShowControls(false);
-                  }}
-                  className="text-gray-400 hover:text-white flex items-center justify-center min-w-[44px] min-h-[44px] font-bold text-base cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFC72C] rounded"
-                >
-                  ✕
-                </button>
-              </div>
 
-              {/* Cars per household */}
-              <div className="flex flex-col gap-0.5">
-                <div className="flex justify-between">
-                  <span className="text-gray-300">Cars/Home</span>
-                  <span className="font-bold text-[#FFC72C]">
-                    {config.householdCarsPerHome.toFixed(1)} ({activeHouseholdCars})
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  aria-label="Cars per household"
-                  min="0"
-                  max="5"
-                  step="0.25"
-                  value={config.householdCarsPerHome}
-                  onChange={(e) =>
-                    onConfigChange?.({ householdCarsPerHome: parseFloat(e.target.value) })
-                  }
-                  className="accent-[#0081BC] cursor-pointer h-1.5 bg-gray-700 rounded-lg"
-                />
-              </div>
-
-              {/* Visitor parking passes */}
-              <div className="flex flex-col gap-0.5">
-                <div className="flex justify-between">
-                  <span className="text-gray-300">Visitor Passes</span>
-                  <span className="font-bold text-white">
-                    {config.visitorPassesPerHome.toFixed(1)} ({activeVisitorCars})
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  aria-label="Visitor passes per home"
-                  min="0"
-                  max="5"
-                  step="0.25"
-                  value={config.visitorPassesPerHome}
-                  onChange={(e) =>
-                    onConfigChange?.({ visitorPassesPerHome: parseFloat(e.target.value) })
-                  }
-                  className="accent-[#0081BC] cursor-pointer h-1.5 bg-gray-700 rounded-lg"
-                />
-              </div>
-
-              {/* Infill Homes (2 to 12, increasing by 2 for each lot split) */}
-              <div className="flex flex-col gap-0.5">
-                <div className="flex justify-between">
-                  <span className="text-gray-300">Infill Homes</span>
-                  <span className="font-bold text-[#009A44]">
-                    {totalDwellings} Dwellings
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  aria-label="Infill homes"
-                  min="2"
-                  max="12"
-                  step="2"
-                  value={config.splitInfillLots ?? 2}
-                  onChange={(e) =>
-                    onConfigChange?.({ splitInfillLots: parseInt(e.target.value, 10) })
-                  }
-                  className="accent-[#009A44] cursor-pointer h-1.5 bg-gray-700 rounded-lg"
-                />
-              </div>
-
-              {/* Deliveries Per Home */}
-              <div className="flex flex-col gap-0.5">
-                <div className="flex justify-between">
-                  <span className="text-gray-300">Weekly Deliveries</span>
-                  <span className="font-bold text-[#FF5500]">
-                    {config.deliveriesPerHomePerWeek.toFixed(1)} ({totalWeeklyDeliveries}/wk)
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  aria-label="Weekly deliveries per home"
-                  min="1"
-                  max="4"
-                  step="0.25"
-                  value={config.deliveriesPerHomePerWeek}
-                  onChange={(e) =>
-                    onConfigChange?.({ deliveriesPerHomePerWeek: parseFloat(e.target.value) })
-                  }
-                  className="accent-[#FF5500] cursor-pointer h-1.5 bg-gray-700 rounded-lg"
-                />
-              </div>
-
-              {/* Circling / Cruising Traffic Status */}
-              <div className="flex justify-between items-center text-xs py-1.5 border-t border-white/10">
-                <span className="text-gray-300">Circling Traffic</span>
-                <span className={`font-bold ${circlingCarCount > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
-                  {circlingCarCount > 0 ? `${circlingCarCount} Circling for P` : 'Smooth Flow'}
-                </span>
-              </div>
-
-              <div className="pt-1 flex items-center justify-between text-[10px] text-gray-400">
-                <span className="flex items-center gap-1">
-                  <ShieldCheck className="w-3 h-3 text-[#0081BC]" />
-                  {config.enforcementLevel}
-                </span>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      triggerFeedback('button');
-                      handleReshuffle();
-                    }}
-                    className="text-[#FFC72C] hover:underline font-semibold cursor-pointer active:scale-95 px-2 min-h-[44px] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFC72C] rounded"
-                  >
-                    Reshuffle
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Zoom Controls (Bottom Left) */}
+
         <div className="absolute bottom-2 left-2 sm:bottom-3 sm:left-3 z-10 flex flex-col gap-1 bg-black/60 backdrop-blur-sm p-1 rounded-lg border border-white/10 origin-bottom-left scale-50 lg:scale-100 [@media(orientation:landscape)_and_(max-height:540px)]:scale-50 [@media(max-height:540px)]:scale-50 transition-transform">
           <button 
             type="button"
@@ -4333,6 +4145,7 @@ const NeighborhoodSimulationComponent: React.FC<NeighborhoodSimulationProps> = (
         </div>
 
 
+      
       </div>
     </div>
   );

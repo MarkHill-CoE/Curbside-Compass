@@ -251,7 +251,7 @@ const GoogleSheetSyncModalComponent: React.FC<GoogleSheetSyncModalProps> = ({ is
                   <a
                     href="https://sheets.new"
                     target="_blank"
-                    rel="noreferrer"
+                    rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-300 hover:border-gray-400 rounded-lg text-gray-700 font-semibold text-xs shadow-2xs transition-colors cursor-pointer"
                   >
                     <ExternalLink className="w-3.5 h-3.5 text-green-600" />

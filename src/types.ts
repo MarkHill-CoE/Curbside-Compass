@@ -49,9 +49,6 @@ declare global {
     __riotAudioPlayed?: boolean;
     __riotAudioPending?: boolean;
     __riotAudio?: HTMLAudioElement;
-    __riotNoisePlayed?: boolean;
-    __riotNoisePending?: boolean;
-    __riotNoiseAudio?: HTMLAudioElement;
     __commendationAudioPlayed?: boolean;
     __commendationAudioPending?: boolean;
     __commendationAudio?: HTMLAudioElement;

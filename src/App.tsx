@@ -3,6 +3,8 @@ import { NeighborhoodSimulation } from './components/NeighborhoodSimulation';
 import { SurveyStage } from './components/SurveyStage';
 import { ResultsView } from './components/ResultsView';
 import { GoogleSheetSyncModal } from './components/GoogleSheetSyncModal';
+import { ManualSlidersDrawer } from './components/ManualSlidersDrawer';
+import { MagnifiedGaugeDrawer } from './components/MagnifiedGaugeDrawer';
 import { useAppText } from './context/TextContentContext';
 import {
   SURVEY_QUESTIONS,
@@ -11,13 +13,37 @@ import {
   validatePostalCode
 } from './data/surveyData';
 import { SimulationConfig } from './types';
-import { Compass, RotateCcw, FileSpreadsheet } from 'lucide-react';
+import { Compass, RotateCcw, FileSpreadsheet, CheckCircle } from 'lucide-react';
 import { feedback, triggerFeedback } from './utils/feedback';
 import { ambientAudio } from './utils/ambientAudio';
 
 export default function App() {
   const { t, isCustomActive, itemCount } = useAppText();
   const [isSyncModalOpen, setIsSyncModalOpen] = useState<boolean>(false);
+  const [showManualSliders, setShowManualSliders] = useState<boolean>(false);
+  const [showMagnifiedGauge, setShowMagnifiedGauge] = useState<boolean>(false);
+  const [isHarmonyActive, setIsHarmonyActive] = useState<boolean>(false);
+  const [simulationMetrics, setSimulationMetrics] = useState<{
+    activeHouseholdCars: number;
+    activeVisitorCars: number;
+    totalDwellings: number;
+    totalWeeklyDeliveries: number;
+    circlingCarCount: number;
+    curbsideDemandCount: number;
+    curbsideStallsCapacity: number;
+    curbsidePct: number;
+    onReshuffle: () => void;
+  }>({
+    activeHouseholdCars: 15,
+    activeVisitorCars: 3,
+    totalDwellings: 6,
+    totalWeeklyDeliveries: 12,
+    circlingCarCount: 0,
+    curbsideDemandCount: 5,
+    curbsideStallsCapacity: 11,
+    curbsidePct: 45,
+    onReshuffle: () => {}
+  });
   const [currentStep, setCurrentStep] = useState<number>(() => {
     try {
       const saved = localStorage.getItem('curbsideCompass_step');
@@ -221,6 +247,8 @@ export default function App() {
     setIsCompleted(false);
     setShowValidationError(false);
     setValidationErrorMsg(null);
+    setShowManualSliders(false);
+    setShowMagnifiedGauge(false);
     setSimConfig(INITIAL_SIM_CONFIG);
     setPolicyNote('Simulation reset to baseline configuration.');
   }, []);
@@ -327,7 +355,24 @@ export default function App() {
       </header>
 
       {/* Primary Split Viewport: Stacked on mobile portrait, side-by-side on desktop, tablet, and mobile landscape */}
-      <main className="flex flex-col lg:flex-row [@media(orientation:landscape)_and_(max-height:540px)]:flex-row flex-grow h-[calc(100dvh-40px)] sm:h-[calc(100dvh-44px)] overflow-hidden">
+      <main className="relative flex flex-col lg:flex-row [@media(orientation:landscape)_and_(max-height:540px)]:flex-row flex-grow h-[calc(100dvh-40px)] sm:h-[calc(100dvh-44px)] overflow-hidden">
+        {/* Magnified Parking Gauge Overlay: Overlays overtop of BOTH the simulation container and the question and answer container */}
+        <MagnifiedGaugeDrawer
+          isOpen={showMagnifiedGauge}
+          onClose={() => setShowMagnifiedGauge(false)}
+          curbsidePct={simulationMetrics.curbsidePct}
+          curbsideDemandCount={simulationMetrics.curbsideDemandCount}
+          curbsideStallsCapacity={simulationMetrics.curbsideStallsCapacity}
+          circlingCarCount={simulationMetrics.circlingCarCount}
+          activeHouseholdCars={simulationMetrics.activeHouseholdCars}
+          activeVisitorCars={simulationMetrics.activeVisitorCars}
+          totalDwellings={simulationMetrics.totalDwellings}
+          onOpenManualSliders={() => {
+            setShowMagnifiedGauge(false);
+            setShowManualSliders(true);
+          }}
+        />
+
         {/* Simulation Section: Ergonomic mobile height (38vh max 320px on small screens) to give survey plenty of room */}
         <section
           id="simulation-section"
@@ -335,7 +380,7 @@ export default function App() {
             isCompleted
               ? "hidden lg:block"
               : "w-full h-[38vh] min-h-[190px] max-h-[320px] sm:h-[45vh] sm:max-h-none"
-          } lg:h-full lg:max-h-none lg:w-[48%] xl:w-[50%] 2xl:w-[52%] [@media(orientation:landscape)_and_(max-height:540px)]:h-full [@media(orientation:landscape)_and_(max-height:540px)]:w-1/2 [@media(orientation:landscape)_and_(max-height:540px)]:border-b-0 [@media(orientation:landscape)_and_(max-height:540px)]:border-r-2`}
+          } lg:h-full lg:max-h-none lg:w-[48%] xl:w-[50%] 2xl:w-[52%] [@media(orientation:landscape)_and_(max-height:540px)]:h-full [@media(orientation:landscape)_and_(max-height:540px)]:w-1/2 [@media(orientation:landscape)_and_(max-height:540px)]:border-b-0 [@media(orientation:landscape)_and_(max-height:540px)]:border-r-2 ${showMagnifiedGauge ? 'filter blur-[1.5px] pointer-events-none' : ''}`}
           aria-label="Neighborhood Parking Simulation View"
         >
           <NeighborhoodSimulation
@@ -344,15 +389,73 @@ export default function App() {
             activeQuestionNumber={currentStep + 1}
             policyNote={policyNote}
             isCompleted={isCompleted}
+            showControls={showManualSliders}
+            onToggleControls={() => setShowManualSliders((prev) => !prev)}
+            onToggleMagnifiedGauge={() => setShowMagnifiedGauge((prev) => !prev)}
+            onSimulationMetricsChange={setSimulationMetrics}
+            onHarmonyActiveChange={setIsHarmonyActive}
           />
         </section>
 
         {/* Interactive Survey or Results View */}
         <section
           id="survey-section"
-          className={`w-full flex-1 flex flex-col justify-between overflow-y-auto overflow-x-hidden min-h-0 bg-[#ffffff] lg:h-full [@media(orientation:landscape)_and_(max-height:540px)]:h-full ${isCompleted ? "w-full lg:w-[52%] xl:w-[50%] 2xl:w-[48%]" : "lg:w-[52%] xl:w-[50%] 2xl:w-[48%] [@media(orientation:landscape)_and_(max-height:540px)]:w-1/2"}`}
+          className={`relative w-full flex-1 flex flex-col justify-between overflow-y-auto overflow-x-hidden min-h-0 bg-[#ffffff] lg:h-full [@media(orientation:landscape)_and_(max-height:540px)]:h-full ${isCompleted ? "w-full lg:w-[52%] xl:w-[50%] 2xl:w-[48%]" : "lg:w-[52%] xl:w-[50%] 2xl:w-[48%] [@media(orientation:landscape)_and_(max-height:540px)]:w-1/2"} ${showMagnifiedGauge ? 'filter blur-[1.5px] pointer-events-none' : ''}`}
           aria-label="Parking Policy Persona Survey"
         >
+          {/* Harmony Award Banner: Positioned directly below the Simulated neighbourhood container (middle of mobile screen) */}
+          {isHarmonyActive && !isCompleted && (
+            <div
+              id="harmony-banner"
+              className="w-full flex-shrink-0 z-20 animate-in slide-in-from-top-2 duration-300 shadow-md border-b-2 border-[#009A44]"
+            >
+              {/* Yellow container: Award Optimal Curb Management */}
+              <div className="bg-[#FFC72C] text-[#111] text-[10px] sm:text-xs font-black px-3 py-1 sm:px-4 sm:py-1.5 tracking-wider sm:tracking-widest flex items-center gap-1.5 uppercase border-b border-black/10 shadow-sm">
+                <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#009A44] shrink-0" />
+                <span>AWARD: OPTIMAL CURB MANAGEMENT</span>
+              </div>
+
+              {/* Green container: Transformation statement */}
+              <div className="w-full bg-[#009A44] px-3 py-1.5 sm:px-4 sm:py-2 text-left">
+                <h4 className="text-white text-xs sm:text-sm md:text-base font-black uppercase tracking-wide m-0 leading-snug">
+                  TODAY, THE TRANSFORMATION IN THIS NEIGHBORHOOD IS NOTHING SHORT OF REMARKABLE
+                </h4>
+                <p className="text-[#b3ffd1] text-[9px] sm:text-xs font-bold m-0 mt-0.5 leading-tight">
+                  CHILDREN PLAYING SAFELY ON TREE-SHADED SIDEWALKS • QUIETER, GREENER & FAR MORE CONNECTED
+                </p>
+              </div>
+
+              {/* Reporter ticker */}
+              <div className="w-full h-6 sm:h-7 bg-white border-t border-[#004B8D] border-b border-[#004B8D]/30 flex items-center overflow-hidden">
+                <div className="bg-[#004B8D] text-white font-black text-[9px] sm:text-[10px] px-2.5 h-full flex items-center whitespace-nowrap z-10 tracking-wider">
+                  REPORTER
+                </div>
+                <div className="text-[#004B8D] text-[9px] sm:text-[10px] font-bold px-2 whitespace-nowrap overflow-hidden flex-1 h-full flex items-center">
+                  <span className="inline-block animate-marquee-slow uppercase">
+                    "The chaotic dash for curb space has been replaced by children playing safely on tree-shaded sidewalks, neighbors chatting on front lawns, and a steady, calm flow of cars, bicycles, and scooters safely sharing the road. When a neighborhood works together, everyone wins!"
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Manual Sliders Overlay: positioned over the question container, blurring question content underneath while the neighborhood canvas remains crisp and unblurred */}
+          <ManualSlidersDrawer
+            showControls={showManualSliders}
+            onClose={() => setShowManualSliders(false)}
+            config={simConfig}
+            onConfigChange={handleConfigChange}
+            activeHouseholdCars={simulationMetrics.activeHouseholdCars}
+            activeVisitorCars={simulationMetrics.activeVisitorCars}
+            totalDwellings={simulationMetrics.totalDwellings}
+            totalWeeklyDeliveries={simulationMetrics.totalWeeklyDeliveries}
+            circlingCarCount={simulationMetrics.circlingCarCount}
+            onOpenGauge={() => {
+              setShowManualSliders(false);
+              setShowMagnifiedGauge(true);
+            }}
+          />
+          <div className={`w-full flex-1 flex flex-col justify-between min-h-0 transition-all duration-200 ${showManualSliders || showMagnifiedGauge ? 'blur-sm select-none pointer-events-none' : ''}`}>
           {!isCompleted ? (
             currentStep < SURVEY_QUESTIONS.length ? (
               <SurveyStage
@@ -367,7 +470,7 @@ export default function App() {
                 totalY={totalY}
               />
             ) : (
-              <div className="flex flex-col items-center justify-center h-full p-8 text-center space-y-6 animate-in fade-in zoom-in duration-500">
+              <div className="relative flex flex-col items-center justify-center h-full p-8 text-center space-y-6 animate-in fade-in zoom-in duration-500 overflow-hidden">
                  <h2 className="text-2xl sm:text-3xl font-black text-[#004B8D]">
                    {t('watch_title', 'Watch the Street!')}
                  </h2>
@@ -395,6 +498,7 @@ export default function App() {
               onRetake={handleRetake}
             />
           )}
+          </div>
         </section>
       </main>
 

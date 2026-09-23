@@ -11,6 +11,12 @@
   animation: marquee 16s linear infinite;
 }
 
+.animate-marquee-slow {
+  display: inline-block;
+  white-space: nowrap;
+  animation: marquee 128s linear infinite;
+}
+
 html, body, #root {
   height: 100%;
   width: 100%;

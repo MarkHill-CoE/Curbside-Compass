@@ -1,25 +1,6 @@
 import { SURVEY_QUESTIONS, PERSONA_PROFILES } from '../data/surveyData';
 import { SurveyQuestion } from '../types';
 
-export interface TextItem {
-  key: string;
-  pageNumber: string;
-  pageName: string;
-  containerName: string;
-  text: string;
-  fontSize?: string;
-  fontStyle?: string;
-  fontAttribute?: string;
-}
-
-export interface SyncState {
-  status: 'idle' | 'loading' | 'synced' | 'error';
-  lastSynced: string | null;
-  itemCount: number;
-  url: string;
-  error?: string;
-}
-
 // ============================================================================
 // GOOGLE SHEET SYNC CONFIGURATION
 // Paste your published Google Sheet CSV URL or share link here to make it the default:
@@ -370,40 +351,6 @@ const PERSONA_NAME_TO_KEY: Record<string, string> = {
   'happy driver': 'happy_driver',
   'free wheeler': 'free_wheeler'
 };
-
-/**
- * Backward-compatible helper for parsing record objects.
- */
-export function extractTextMap(records: Array<Record<string, string>>): Record<string, string> {
-  const map: Record<string, string> = {};
-  if (!records || records.length === 0) return map;
-
-  for (const record of records) {
-    let key = '';
-    let revisedText = '';
-    let standardText = '';
-
-    for (const [rawHeader, val] of Object.entries(record)) {
-      const normalized = normalizeHeader(rawHeader);
-      if (KEY_HEADER_SYNONYMS.has(normalized)) {
-        key = val.trim();
-      }
-      if (REVISED_TEXT_SYNONYMS.has(normalized) && val.trim()) {
-        revisedText = val;
-      }
-      if (STANDARD_TEXT_SYNONYMS.has(normalized)) {
-        standardText = val;
-      }
-    }
-
-    const finalText = revisedText || standardText;
-    if (key && finalText !== undefined) {
-      map[key] = finalText;
-    }
-  }
-
-  return map;
-}
 
 /**
  * Applies fetched text overrides directly to the survey questions and persona models.

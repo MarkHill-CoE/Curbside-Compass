@@ -87,7 +87,7 @@ const SurveyStageComponent: React.FC<SurveyStageProps> = ({
       </div>
 
       {/* Animated Question Card with adaptive layout */}
-      <div className="relative flex-grow flex flex-col justify-start min-h-0 overflow-y-auto pt-0.5 pb-0.5 sm:pt-1 pr-1">
+      <div className="relative flex-grow flex flex-col justify-start min-h-0 overflow-y-auto pt-1 pb-1 sm:pt-2 sm:pb-2 pr-1">
         <AnimatePresence mode="wait">
           <motion.div
             key={currentQuestion.id}
@@ -97,14 +97,14 @@ const SurveyStageComponent: React.FC<SurveyStageProps> = ({
             transition={{ duration: 0.2 }}
             className="flex flex-col w-full"
           >
-            <h3 className="text-sm sm:text-base md:text-[16pt] lg:text-lg font-bold text-[#004B8D] mb-1.5 sm:mb-2 md:mb-3 lg:mb-1.5 leading-snug">
+            <h3 className="text-xl sm:text-2xl md:text-[24pt] lg:text-[24pt] font-extrabold text-[#004B8D] mb-3 sm:mb-4 md:mb-5 leading-snug tracking-tight">
               {currentQuestion.text}
             </h3>
 
             {isTextQuestion ? (
               /* Text Input Mode for Postal Code (Q9) */
-              <div className="w-full flex flex-col gap-2.5 pt-1">
-                <p className="text-xs sm:text-sm md:text-base text-gray-600 leading-relaxed">
+              <div className="w-full flex flex-col gap-3 pt-1">
+                <p className="text-sm sm:text-base md:text-lg text-gray-600 leading-relaxed font-medium">
                   {currentQuestion.helperText || 'Please enter your 6 or 7 character alphanumeric postal code (e.g., T5J 2R7 or T5J2R7).'}
                 </p>
 
@@ -133,16 +133,12 @@ const SurveyStageComponent: React.FC<SurveyStageProps> = ({
                         onNavigate(1);
                       }
                     }}
-                    className="w-full pl-11 pr-4 py-2.5 sm:py-3 bg-white border-2 border-gray-300 rounded-lg text-base sm:text-lg md:text-xl font-bold font-mono text-[#004B8D] tracking-widest placeholder:text-gray-400 placeholder:font-sans placeholder:tracking-normal placeholder:font-normal placeholder:text-sm focus:outline-none focus:border-[#004B8D] focus:ring-2 focus:ring-[#004B8D]/20 transition-all shadow-xs"
+                    className="w-full pl-11 pr-4 py-3 bg-white border-2 border-gray-300 rounded-lg text-lg sm:text-xl md:text-2xl font-bold font-mono text-[#004B8D] tracking-widest placeholder:text-gray-400 placeholder:font-sans placeholder:tracking-normal placeholder:font-normal placeholder:text-base focus:outline-none focus:border-[#004B8D] focus:ring-2 focus:ring-[#004B8D]/20 transition-all shadow-xs"
                     aria-label="Postal code input"
                   />
                 </div>
 
-
-
-
-                
-                <label className="flex items-center gap-2 mt-2 cursor-pointer w-fit opacity-80 hover:opacity-100 transition-opacity">
+                <label className="flex items-center gap-2.5 mt-2 cursor-pointer w-fit opacity-85 hover:opacity-100 transition-opacity">
                   <input
                     type="checkbox"
                     checked={currentAnswer === 'OPT_OUT'}
@@ -152,7 +148,7 @@ const SurveyStageComponent: React.FC<SurveyStageProps> = ({
                     }}
                     className="w-4 h-4 text-[#004B8D] rounded border-gray-300 focus:ring-[#004B8D]"
                   />
-                  <span className="text-sm font-semibold text-gray-700 select-none">
+                  <span className="text-sm sm:text-base font-semibold text-gray-700 select-none">
                     {t('q9_opt_out_label', 'I prefer not to provide my postal code')}
                   </span>
                 </label>
@@ -203,27 +199,27 @@ const SurveyStageComponent: React.FC<SurveyStageProps> = ({
                         triggerFeedback('choice');
                         onSelectOption(currentQuestion.id, option.id);
                       }}
-                      className={`w-full text-left p-2 sm:p-2.5 md:p-3.5 lg:p-2.5 rounded-lg border-2 transition-all flex items-start gap-2 sm:gap-2.5 md:gap-3 cursor-pointer relative min-h-[44px] active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#004B8D] focus-visible:ring-offset-2 ${
+                      className={`w-full text-left p-3 sm:p-3.5 md:p-4 rounded-xl border-2 transition-all flex items-start gap-2.5 sm:gap-3 cursor-pointer relative min-h-[48px] active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#004B8D] focus-visible:ring-offset-2 ${
                         isSelected
                           ? 'border-[#004B8D] bg-[#004B8D]/5 shadow-xs ring-1 ring-[#004B8D]'
                           : 'border-gray-200 bg-white hover:border-[#004B8D]/40 hover:bg-gray-50'
                       }`}
                     >
-                      <div className="pt-0.5 flex-shrink-0">
+                      <div className="pt-1.5 flex-shrink-0">
                         <div
-                          className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all ${
+                          className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full border-2 flex items-center justify-center transition-all ${
                             isSelected
                               ? 'border-[#004B8D] bg-[#004B8D] scale-105'
                               : 'border-gray-400 bg-white'
                           }`}
                         >
-                          {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />}
+                          {isSelected && <div className="w-2.5 h-2.5 rounded-full bg-white animate-pulse" />}
                         </div>
                       </div>
 
                       <div className="flex flex-col flex-grow min-w-0">
                         <span
-                          className={`text-xs sm:text-sm md:text-[16pt] lg:text-base font-semibold leading-snug ${
+                          className={`text-base sm:text-lg md:text-[20pt] lg:text-[20pt] font-semibold leading-snug tracking-tight ${
                             isSelected ? 'text-[#004B8D]' : 'text-gray-800'
                           }`}
                         >
