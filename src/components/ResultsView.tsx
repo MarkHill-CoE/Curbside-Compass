@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { PersonaResult, SimulationConfig } from '../types';
-import { Award, MapPin, Target, CheckCircle, Shield, ChevronRight, Compass, Share2, AlertTriangle } from 'lucide-react';
+import { Award, MapPin, Target, CheckCircle, ChevronRight, Compass, Share2, AlertTriangle } from 'lucide-react';
 import { ThankYouView } from './ThankYouView';
 import { PolicyCompassGraph } from './PolicyCompassGraph';
 import { triggerFeedback } from '../utils/feedback';
@@ -184,34 +184,18 @@ const ResultsViewComponent: React.FC<ResultsViewProps> = ({
           <Compass className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0081BC]" />
           {t('results_compass_result_title', 'Your Curbside Compass Result')}
         </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 sm:gap-2">
-          <div className="sm:col-span-1 bg-blue-50/80 border border-blue-100 rounded-lg px-2 py-1.5 sm:py-2 flex items-center text-xs sm:text-sm gap-2 h-full">
+        <div className="bg-blue-50/80 border border-blue-100 rounded-lg p-2 sm:p-2.5 flex flex-col gap-1.5">
+          <div className="flex items-center gap-2 sm:gap-2.5">
             <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center text-white shadow-xs flex-shrink-0" style={{ backgroundColor: persona.badgeColor }}>
               <Award className="w-4 h-4" />
             </div>
-            <span className="font-bold text-[#005087] leading-tight text-xs sm:text-sm">
+            <span className="font-bold text-[#005087] leading-tight text-xs sm:text-sm sm:text-base">
               {persona.title}
             </span>
           </div>
-          <div className="sm:col-span-2 grid grid-cols-2 gap-1.5 sm:gap-2">
-            <div className="bg-gray-50 p-1.5 sm:p-2 rounded-lg border border-gray-200 flex flex-col justify-center">
-              <span className="text-gray-500 block text-[0.625rem] sm:text-xs mb-0.5">
-                {t('results_fee_model_label', 'Curbside Fee Model')}
-              </span>
-              <span className="font-bold capitalize text-gray-800 text-xs sm:text-sm truncate">
-                {config.curbsideFeeModel}
-              </span>
-            </div>
-            <div className="bg-gray-50 p-1.5 sm:p-2 rounded-lg border border-gray-200 flex flex-col justify-center">
-              <span className="text-gray-500 block text-[0.625rem] sm:text-xs mb-0.5">
-                {t('results_enforcement_label', 'Enforcement Level')}
-              </span>
-              <span className="font-bold capitalize text-gray-800 flex items-center gap-1.5 text-xs sm:text-sm truncate">
-                <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#009A44] flex-shrink-0" />
-                {config.enforcementLevel}
-              </span>
-            </div>
-          </div>
+          <p className="text-xs sm:text-sm text-gray-800 leading-snug">
+            {persona.description}
+          </p>
         </div>
       </div>
 
